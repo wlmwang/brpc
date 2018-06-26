@@ -11,6 +11,7 @@ namespace butil {
 FileEnumerator::FileInfo::~FileInfo() {
 }
 
+// 跳过 "." / ".." 目录项
 bool FileEnumerator::ShouldSkip(const FilePath& path) {
   FilePath::StringType basename = path.BaseName().value();
   return basename == FILE_PATH_LITERAL(".") ||

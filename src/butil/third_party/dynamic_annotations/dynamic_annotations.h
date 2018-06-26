@@ -47,6 +47,16 @@
       Macros are defined as calls to non-inlinable empty functions
       that are intercepted by Valgrind. */
 
+/* 该文件定义动态注释，以用于动态分析工具，如 valgrind,PIN 等。
+ *
+ * 动态注释是影响生成的代码的源代码注释。每个这样的注释都附加到特定的指令 和/或 程序
+ * 中的特定对象（地址）。
+ * 
+ * 用户应该使用的注释是全部大写的宏（例如， ANNOTATE_NEW_MEMORY ）。
+ * 
+ * 这些宏的实际实现可能会因使用的动态分析工具而异。
+ */
+
 #ifndef __DYNAMIC_ANNOTATIONS_H__
 #define __DYNAMIC_ANNOTATIONS_H__
 
@@ -72,6 +82,8 @@
 
 /* The following preprocessor magic prepends the value of
    DYNAMIC_ANNOTATIONS_PREFIX to annotation function names. */
+
+// 以下预处理器将 DYNAMIC_ANNOTATIONS_PREFIX 的值预先添加到注释函数名称中
 #define DYNAMIC_ANNOTATIONS_GLUE0(A, B) A##B
 #define DYNAMIC_ANNOTATIONS_GLUE(A, B) DYNAMIC_ANNOTATIONS_GLUE0(A, B)
 #define DYNAMIC_ANNOTATIONS_NAME(name) \

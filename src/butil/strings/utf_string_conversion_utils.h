@@ -6,6 +6,8 @@
 #define BUTIL_STRINGS_UTF_STRING_CONVERSION_UTILS_H_
 
 // This should only be used by the various UTF string conversion files.
+// 
+// UTF 字符串转换的工具集
 
 #include "butil/base_export.h"
 #include "butil/strings/string16.h"

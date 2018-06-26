@@ -4,6 +4,8 @@
 
 // This file contains utility functions for dealing with the local
 // filesystem.
+// 
+// 处理本地系统文件函数集。
 
 #ifndef BUTIL_FILE_UTIL_H_
 #define BUTIL_FILE_UTIL_H_
@@ -42,10 +44,15 @@ class Time;
 
 //-----------------------------------------------------------------------------
 // Functions that involve filesystem access or modification:
+// 
+// 涉及文件系统访问或修改的函数。
 
 // Returns an absolute version of a relative path. Returns an empty path on
 // error. On POSIX, this function fails if the path does not exist. This
 // function can result in I/O so it can be slow.
+// 
+// 返回相对路径的绝对版本。错误时返回空路径。在 POSIX 上，如果路径不存在，此函数将失败。
+// 该函数可能会导致 I/O(realpath) ，因此速度可能会变慢。
 BUTIL_EXPORT FilePath MakeAbsoluteFilePath(const FilePath& input);
 
 // Returns the total number of bytes used by all the files under |root_path|.
@@ -53,6 +60,11 @@ BUTIL_EXPORT FilePath MakeAbsoluteFilePath(const FilePath& input);
 //
 // This function is implemented using the FileEnumerator class so it is not
 // particularly speedy in any platform.
+// 
+// 返回 |root_path| 下的所有文件（含子目录递归计算）的总字节数。如果路径不存在，则函数
+// 返回 0 。
+// 
+// 这个函数是使用 FileEnumerator 类实现的，所以它在任何平台上都不是特别快。
 BUTIL_EXPORT int64_t ComputeDirectorySize(const FilePath& root_path);
 
 // Deletes the given path, whether it's a file or a directory.
@@ -67,6 +79,15 @@ BUTIL_EXPORT int64_t ComputeDirectorySize(const FilePath& root_path);
 //
 // WARNING: USING THIS WITH recursive==true IS EQUIVALENT
 //          TO "rm -rf", SO USE WITH CAUTION.
+//
+// 删除给定的路径，无论是文件还是目录。如果是一个目录，只能删除一个空目录。除非传递 
+// |recursive| = true 以递归删除子目录及其内容。成功返回 true，否则返回 false 。
+// 尝试删除不存在的文件被认为是成功的。
+// 
+// 在 posix 环境中，如果 |path| 是一个符号链接，这只会删除符号链接（即使该符
+// 号链接指向一个不存在的文件）。
+// 
+// 警告：以递归方式使用 recursive==true 等同于 "rm -rf"，所以谨慎使用。
 BUTIL_EXPORT bool DeleteFile(const FilePath& path, bool recursive);
 
 #if defined(OS_WIN)
@@ -75,6 +96,10 @@ BUTIL_EXPORT bool DeleteFile(const FilePath& path, bool recursive);
 // Note:
 // 1) The file/directory to be deleted should exist in a temp folder.
 // 2) The directory to be deleted must be empty.
+// 
+// 计划删除给定的路径，无论它是文件还是目录，直到操作系统重新启动。
+// 1）要删除的文件/目录应该存在于临时文件夹中。
+// 2）要删除的目录必须为空目录。
 BUTIL_EXPORT bool DeleteFileAfterReboot(const FilePath& path);
 #endif
 
@@ -83,6 +108,12 @@ BUTIL_EXPORT bool DeleteFileAfterReboot(const FilePath& path);
 // on different volumes, this will attempt to copy and delete. Returns
 // true for success.
 // This function fails if either path contains traversal components ('..').
+// 
+// 移动给定的路径，无论是文件还是目录。如果 |to_path| 指定的文件存在，则会被删除；如果 
+// |to_path| 与 |from_path| 不在一个目录下，则相当于移动文件。
+// 
+// 如果无法进行简单重命名，例如，路径位于不同卷上，则会尝试复制和删除。成功返回 true 。
+// 如果任一路径包含遍历组件 ('..') ，则此函数失败。
 BUTIL_EXPORT bool Move(const FilePath& from_path, const FilePath& to_path);
 
 // Renames file |from_path| to |to_path|. Both paths must be on the same
@@ -112,27 +143,47 @@ BUTIL_EXPORT bool CopyFile(const FilePath& from_path, const FilePath& to_path);
 // applies.
 //
 // If you only need to copy a file use CopyFile, it's faster.
+// 
+// 复制给定的路径，以及可选的所有子目录及其内容。如果在 to_path 下存在文件，则始终覆盖。
+// 如果成功则返回 true ，否则返回 false 。
+// 注：名称上不支持通配符。
+// 
+// 这个函数调用 CopyFile() ，使其具有相同的行为 w.r.t. 元数据适用。
+// 
+// 如果您只需要使用 CopyFile 复制文件，速度会更快。
 BUTIL_EXPORT bool CopyDirectory(const FilePath& from_path,
                                const FilePath& to_path,
                                bool recursive);
 
 // Returns true if the given path exists on the local filesystem,
 // false otherwise.
+// 
+// 如果给定的路径存在于本地文件系统中，则返回 true ，否则返回 false
 BUTIL_EXPORT bool PathExists(const FilePath& path);
 
 // Returns true if the given path is writable by the user, false otherwise.
+// 
+// 如果给定路径可由用户写入，则返回 true ，否则返回 false 
 BUTIL_EXPORT bool PathIsWritable(const FilePath& path);
 
 // Returns true if the given path exists and is a directory, false otherwise.
+// 
+// 如果给定的路径存在，并且是目录，则返回 true ，否则返回 false
 BUTIL_EXPORT bool DirectoryExists(const FilePath& path);
 
 // Returns true if the contents of the two files given are equal, false
 // otherwise.  If either file can't be read, returns false.
+// 
+// 如果给定的两个文件的内容相等，则返回 true ，否则返回 false 。如果任何一个文件无法
+// 读取，则返回 false
 BUTIL_EXPORT bool ContentsEqual(const FilePath& filename1,
                                const FilePath& filename2);
 
 // Returns true if the contents of the two text files given are equal, false
 // otherwise.  This routine treats "\r\n" and "\n" as equivalent.
+// 
+// 如果给出的两个文本文件的内容相等，则返回 true ，否则返回 false 。该例程将 "\r\n" 和 
+// "\n" 视为等同。
 BUTIL_EXPORT bool TextContentsEqual(const FilePath& filename1,
                                    const FilePath& filename2);
 
@@ -143,6 +194,11 @@ BUTIL_EXPORT bool TextContentsEqual(const FilePath& filename1,
 // file before the error occurred.
 // |contents| may be NULL, in which case this function is useful for its side
 // effect of priming the disk cache (could be used for unit tests).
+// 
+// 读取 |path| 文件内容写入 |contents| 并在成功时返回 true ，错误时返回 false 。出于安
+// 全原因， |path| 包含路径遍历组件 ('..') 被视为读取错误，并 |contents| 被设置为空。
+// 在 I/O 错误的情况下， |contents| 保存在发生错误之前可以从文件读取的数据。 
+// |contents| 可能为 NULL 。在这种情况下，此函数对启动磁盘缓存的副作用很有用（可用于单元测试）。
 BUTIL_EXPORT bool ReadFileToString(const FilePath& path, std::string* contents);
 
 // Reads the file at |path| into |contents| and returns true on success and
@@ -154,6 +210,12 @@ BUTIL_EXPORT bool ReadFileToString(const FilePath& path, std::string* contents);
 // |max_size|.
 // |contents| may be NULL, in which case this function is useful for its side
 // effect of priming the disk cache (could be used for unit tests).
+// 
+// 读取 |path| 文件内容写入 |contents| 并在成功时返回 true ，错误时返回 false 。出于安
+// 全原因， |path| 包含路径遍历组件 ('..') 被视为读取错误，并 |contents| 被设置为空。
+// 在 I/O 错误的情况下， |contents| 保存在发生错误之前可以从文件读取的数据。
+// 当文件大小超过 |max_size| 时，该函数返回 false ，并 |contents| 被截断到 |max_size|。 
+// |contents| 可能为 NULL 。在这种情况下，此函数对启动磁盘缓存的副作用很有用（可用于单元测试）。
 BUTIL_EXPORT bool ReadFileToString(const FilePath& path,
                                   std::string* contents,
                                   size_t max_size);
@@ -163,18 +225,27 @@ BUTIL_EXPORT bool ReadFileToString(const FilePath& path,
 // Read exactly |bytes| bytes from file descriptor |fd|, storing the result
 // in |buffer|. This function is protected against EINTR and partial reads.
 // Returns true iff |bytes| bytes have been successfully read from |fd|.
+// 
+// 读取文件描述符 |fd| 长度为 |bytes| 字节的内容，将结果存储在 |buffer| 中。该函数
+// 会忽略 EINTR 错误信号。如果 |bytes| 字节已成功从 |fd| 中读取，返回 true
 BUTIL_EXPORT bool ReadFromFD(int fd, char* buffer, size_t bytes);
 
 // Creates a symbolic link at |symlink| pointing to |target|.  Returns
 // false on failure.
+// 
+// 创建一个 |symlink| 符号链接指向 |target| 路径。失败时返回 false 
 BUTIL_EXPORT bool CreateSymbolicLink(const FilePath& target,
                                     const FilePath& symlink);
 
 // Reads the given |symlink| and returns where it points to in |target|.
 // Returns false upon failure.
+// 
+// 读取给定的 |symlink| 的内容，将 "真实路径" 写入 |target| 。失败时返回 false 
 BUTIL_EXPORT bool ReadSymbolicLink(const FilePath& symlink, FilePath* target);
 
 // Bits and masks of the file permission.
+// 
+// 文件权限的掩码
 enum FilePermissionBits {
   FILE_PERMISSION_MASK              = S_IRWXU | S_IRWXG | S_IRWXO,
   FILE_PERMISSION_USER_MASK         = S_IRWXU,
@@ -203,6 +274,8 @@ BUTIL_EXPORT bool SetPosixFilePermissions(const FilePath& path, int mode);
 #endif  // OS_POSIX
 
 // Returns true if the given directory is empty
+// 
+// 如果给定目录为空，则返回 true
 BUTIL_EXPORT bool IsDirectoryEmpty(const FilePath& dir_path);
 
 // Get the temporary directory provided by the system.
@@ -211,6 +284,10 @@ BUTIL_EXPORT bool IsDirectoryEmpty(const FilePath& dir_path);
 // instead of this function. Those variants will ensure that the proper
 // permissions are set so that other users on the system can't edit them while
 // they're open (which can lead to security issues).
+// 
+// 获取系统提供的临时目录。
+// 警告：通常，您应该使用下面的 CreateTemporaryFile 变体而不是此函数。这些变体将确保设置
+// 适当的权限，以便系统上的其他用户在打开时不能对其进行编辑（这可能会导致安全问题）。
 BUTIL_EXPORT bool GetTempDir(FilePath* path);
 
 // Get the home directory. This is more complicated than just getenv("HOME")
@@ -219,23 +296,39 @@ BUTIL_EXPORT bool GetTempDir(FilePath* path);
 // You should not generally call this directly. Instead use DIR_HOME with the
 // path service which will use this function but cache the value.
 // Path service may also override DIR_HOME.
+// 
+// 获取主目录。这比 getenv("HOME") 更复杂，因为它知道要回退 getpwent() 等。
+// 你通常不应该直接调用它。相反，将使用 DIR_HOME ，但路径服务将缓存值。路径服务也可以覆
+// 盖 DIR_HOME
 BUTIL_EXPORT FilePath GetHomeDir();
 
 // Creates a temporary file. The full path is placed in |path|, and the
 // function returns true if was successful in creating the file. The file will
 // be empty and all handles closed after this function returns.
+// 
+// 创建一个临时文件。完整路径放置在 |path| 中，如果成功创建文件，则该函数返回 true 。该函数
+// 返回后，该文件将为空，并且所属句柄被关闭。
 BUTIL_EXPORT bool CreateTemporaryFile(FilePath* path);
 
 // Same as CreateTemporaryFile but the file is created in |dir|.
+// 
+// 创建一个临时目录
 BUTIL_EXPORT bool CreateTemporaryFileInDir(const FilePath& dir,
                                           FilePath* temp_file);
 
 // Create and open a temporary file.  File is opened for read/write.
 // The full path is placed in |path|.
 // Returns a handle to the opened file or NULL if an error occurred.
+// 
+// 创建并打开一个临时文件。文件打开进行读取/写入。完整路径放置在 |path| 中。返回已打开文件
+// 的句柄，如果发生错误，则返回 NULL
 BUTIL_EXPORT FILE* CreateAndOpenTemporaryFile(FilePath* path);
 
 // Similar to CreateAndOpenTemporaryFile, but the file is created in |dir|.
+// 
+// CreateAndOpenTemporaryFile 底层实现。即在 |dir| 目录下，创建并打开一个临时文件。文
+// 件打开进行读取/写入。完整路径放置在 |path| 中。返回已打开文件的句柄，如果发生错误，则返
+// 回 NULL
 BUTIL_EXPORT FILE* CreateAndOpenTemporaryFileInDir(const FilePath& dir,
                                                   FilePath* path);
 
@@ -243,6 +336,9 @@ BUTIL_EXPORT FILE* CreateAndOpenTemporaryFileInDir(const FilePath& dir,
 // the format of prefixyyyy.
 // NOTE: prefix is ignored in the POSIX implementation.
 // If success, return true and output the full path of the directory created.
+// 
+// 创建一个新目录。如果提供了前缀，则新目录名称的格式为 prefixyyyy 。注：前缀在 POSIX 实
+// 现中被忽略。如果成功，则返回 true 并输出所创建目录的完整路径。
 BUTIL_EXPORT bool CreateNewTempDirectory(const FilePath::StringType& prefix,
                                         FilePath* new_temp_path);
 

@@ -25,6 +25,26 @@
 // to use these.
 //
 
+// @tips
+// 1. 内存屏障，其实本质上是为了解决因为编译器优化和 CPU 对 CPU Cache/寄存器(Register) 的
+//    使用，从而导致对内存的操作不能够及时反映出来的一类问题。比如 CPU 写入后，读出来的值可能
+//    是旧的内容。
+// 2. 内存屏障，是一类同步屏障指令，是 CPU 或编译器在对内存随机访问操作中的一个同步点，使得此点
+//    之前的所有读写操作都执行后才可以开始执行此点之后的操作。大多数现代计算机为了提高性能而采取
+//    乱序执行，这使得内存屏障成为必须。
+// 
+// CPU 一般情况下是不直接读写内存的 (emmintrin.h 应用例外)，其一般流程为：
+// 读取内存数据到 CPU Cache -->  CPU 读取 CPU Cache/寄存器(Register) -->  
+// CPU 的计算(CPU ALU 单元) --> 将结果写入 CPU Cache /寄存器(Register) --> 写回数据到内存
+// 
+// 语义上，内存屏障之前的所有写操作都要写入内存；内存屏障之后的读操作都可以获得同步内存屏障之前的
+// 写操作的结果。因此，对于敏感的程序块，写操作之后、读操作之前可以插入内存屏障。
+// 
+// 内存屏障提供了两种属性：
+// 1. 它们保留了外部可见的程序顺序。通过确保所有的、屏障两侧的指令表现出正确的程序顺序，比如从其
+//    他 CPU 观察。
+// 2. 它们使内部可见。通过确保数据传播到缓存子系统。
+
 #ifndef BUTIL_ATOMICOPS_H_
 #define BUTIL_ATOMICOPS_H_
 
@@ -45,10 +65,15 @@
 namespace butil {
 namespace subtle {
 
+// 声明 32-bit 的 Atomic32 类型
 typedef int32_t Atomic32;
+// 64-bit 架构上定义 Atomic64 类型
 #ifdef ARCH_CPU_64_BITS
 // We need to be able to go between Atomic64 and AtomicWord implicitly.  This
 // means Atomic64 and AtomicWord should be the same type on 64-bit.
+// 
+// 我们需要能够隐含地在 Atomic64 和 AtomicWord 之间转换。
+// 这意味着 Atomic64 和 AtomicWord 应该是 64 位上相同的类型，都是 64-bit 的。
 #if defined(__ILP32__) || defined(OS_NACL)
 // NaCl's intptr_t is not actually 64-bits on 64-bit!
 // http://code.google.com/p/nativeclient/issues/detail?id=1162
@@ -60,6 +85,8 @@ typedef intptr_t Atomic64;
 
 // Use AtomicWord for a machine-sized pointer.  It will use the Atomic32 or
 // Atomic64 routines below, depending on your architecture.
+// 
+// 使用 AtomicWord 作为机器指针。依赖 CPU 架构平台，其可能使用 Atomic32/Atomic64
 typedef intptr_t AtomicWord;
 
 // Atomically execute:
@@ -72,18 +99,29 @@ typedef intptr_t AtomicWord;
 // Always return the old value of "*ptr"
 //
 // This routine implies no memory barriers.
+// 
+// 无内存屏障，原子的比较和交换操作。
+// 如果 ptr 和 old_value 的值一样，把 new_value 写到 ptr 内存，返回 old_value 。否
+// 则返回 ptr 的旧值。（返回值始终等于 ptr 的旧值）。
 Atomic32 NoBarrier_CompareAndSwap(volatile Atomic32* ptr,
                                   Atomic32 old_value,
                                   Atomic32 new_value);
 
 // Atomically store new_value into *ptr, returning the previous value held in
 // *ptr.  This routine implies no memory barriers.
+// 
+// 无内存屏障，原子的交换操作。
+// 返回交换后的 new_value ：即返回 ptr 的旧值
 Atomic32 NoBarrier_AtomicExchange(volatile Atomic32* ptr, Atomic32 new_value);
 
 // Atomically increment *ptr by "increment".  Returns the new value of
 // *ptr with the increment applied.  This routine implies no memory barriers.
+// 
+// 无内存屏障，原子的自增操作。
+// 返回自增后的 *ptr 的值
 Atomic32 NoBarrier_AtomicIncrement(volatile Atomic32* ptr, Atomic32 increment);
 
+// 原子的自增（带屏障）。返回自增后的 *ptr 的值
 Atomic32 Barrier_AtomicIncrement(volatile Atomic32* ptr,
                                  Atomic32 increment);
 
@@ -96,9 +134,18 @@ Atomic32 Barrier_AtomicIncrement(volatile Atomic32* ptr,
 // after the operation.  "Barrier" operations have both "Acquire" and "Release"
 // semantics.   A MemoryBarrier() has "Barrier" semantics, but does no memory
 // access.
+// 
+// 以下较低级别的操作通常仅适用于实施更高级同步操作的人员，如自旋锁，互斥锁和条件变量。它们
+// 将 CompareAndSwap() ，加载或存储与适当的内存排序指令结合在一起。 "Acquire" 操作可确
+// 保在操作之前不会再重新排序内存访问。 "Release" 操作确保在操作之后不能重新排序先前的存储
+// 器访问。 "Barrier" 操作同时具有 "Acquire" 和 "Release" 语义。 MemoryBarrier() 具
+// 有 "Barrier" 语义，但没有内存访问权限
+// 
+// 原子的比较和交换操作
 Atomic32 Acquire_CompareAndSwap(volatile Atomic32* ptr,
                                 Atomic32 old_value,
                                 Atomic32 new_value);
+// 原子的比较和交换操作
 Atomic32 Release_CompareAndSwap(volatile Atomic32* ptr,
                                 Atomic32 old_value,
                                 Atomic32 new_value);
@@ -139,6 +186,8 @@ Atomic64 Release_Load(volatile const Atomic64* ptr);
 }  // namespace butil
 
 // Include our platform specific implementation.
+// 
+// 包含平台相关原子操作具体实现
 #if defined(THREAD_SANITIZER)
 #include "butil/atomicops_internals_tsan.h"
 #elif defined(OS_WIN) && defined(COMPILER_MSVC) && defined(ARCH_CPU_X86_FAMILY)
@@ -171,10 +220,13 @@ Atomic64 Release_Load(volatile const Atomic64* ptr);
 // gcc supports atomic thread fence since 4.8 checkout
 // https://gcc.gnu.org/gcc-4.7/cxx0x_status.html and
 // https://gcc.gnu.org/gcc-4.8/cxx0x_status.html for more details
+// 
+// gcc 4.8 版本检查
 #if defined(__clang__) || \
     !defined(__GNUC__) || \
     (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 >= 40800)
 
+// C++11 标准库原子类型
 # include <atomic>
 
 #else 
@@ -184,8 +236,12 @@ Atomic64 Release_Load(volatile const Atomic64* ptr);
 // (https://gcc.gnu.org/gcc-4.5/changes.html)
 #  include <atomic>
 # else
+// gcc 4.5 之前版本，原子类型标准库
 #  include <cstdatomic>
 # endif
+
+// @todo
+// 修改 std 命令空间（未定义行为）
 
 namespace std {
 
@@ -242,6 +298,7 @@ private:
 };
 } // namespace butil
 #else
+// C++11 之前使用 <boost/atomic.hpp>
 #include <boost/atomic.hpp>
 namespace butil {
 using ::boost::memory_order;
@@ -278,6 +335,8 @@ private:
 // Notice that to make static_atomic work for C++03, it cannot be
 // initialized by a constructor. Following code is wrong:
 //   butil::static_atomic<int> g_counter(0); // Not compile
+
+// 全局静态原子类型，也可运行在 C++11 上
 
 #define BUTIL_STATIC_ATOMIC_INIT(val) { (val) }
 

@@ -22,6 +22,8 @@
 namespace butil {
 
 // Make sure our Whence mappings match the system headers.
+// 
+// 确保我们的 Whence 映射与系统头文件定义相匹配
 COMPILE_ASSERT(File::FROM_BEGIN   == SEEK_SET &&
                File::FROM_CURRENT == SEEK_CUR &&
                File::FROM_END     == SEEK_END, whence_matches_system);
@@ -42,6 +44,9 @@ static int CallFstat(int fd, stat_wrapper_t *sb) {
 
 // NaCl doesn't provide the following system calls, so either simulate them or
 // wrap them in order to minimize the number of #ifdef's in this file.
+// 
+// NaCl 不提供以下系统调用，因此要么模拟它们，要么包装它们，以便最大限度地减少此文件
+// 中 #ifdef 的数量。
 #if !defined(OS_NACL)
 static bool IsOpenAppend(PlatformFile file) {
   return (fcntl(file, F_GETFL) & O_APPEND) != 0;
@@ -115,9 +120,11 @@ static File::Error CallFctnlFlock(PlatformFile file, bool do_lock) {
 }  // namespace
 
 void File::Info::FromStat(const stat_wrapper_t& stat_info) {
-  is_directory = S_ISDIR(stat_info.st_mode);
-  is_symbolic_link = S_ISLNK(stat_info.st_mode);
-  size = stat_info.st_size;
+  // @tips
+  // \file <sys/stat.h> 文件状态信息结构体
+  is_directory = S_ISDIR(stat_info.st_mode);  // 是否是一个 directory
+  is_symbolic_link = S_ISLNK(stat_info.st_mode);  // 是否是一个 symbolic link
+  size = stat_info.st_size; // 文件大小
 
 #if defined(OS_LINUX)
   time_t last_modified_sec = stat_info.st_mtim.tv_sec;
@@ -166,30 +173,40 @@ void File::Info::FromStat(const stat_wrapper_t& stat_info) {
 }
 
 // NaCl doesn't implement system calls to open files directly.
+// 
+// NaCl 不执行系统调用来直接打开文件。
 #if !defined(OS_NACL)
 // TODO(erikkay): does it make sense to support FLAG_EXCLUSIVE_* here?
+// 
+// 创建或打开给定的文件，允许具有遍历 （'..'） 组件的路径。 使用时要格外小心。
 void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
+  // I/O 线程检测
   butil::ThreadRestrictions::AssertIOAllowed();
   DCHECK(!IsValid());
 
+  // 创建文件标志，文件必须不存在，否则打开失败 O_EXCL 。
   int open_flags = 0;
   if (flags & FLAG_CREATE)
     open_flags = O_CREAT | O_EXCL;
 
   created_ = false;
 
+  // 可能覆盖已有文件的内容方式打开文件（即，指定文件一定会被打开，并且内容为空），
+  // 且必须有写入标志。
   if (flags & FLAG_CREATE_ALWAYS) {
     DCHECK(!open_flags);
     DCHECK(flags & FLAG_WRITE);
     open_flags = O_CREAT | O_TRUNC;
   }
 
+  // 清除内容方式打开文件，且必须有写入标志。
   if (flags & FLAG_OPEN_TRUNCATED) {
     DCHECK(!open_flags);
     DCHECK(flags & FLAG_WRITE);
     open_flags = O_TRUNC;
   }
 
+  // 至少有创建或打开文件的标志。
   if (!open_flags && !(flags & FLAG_OPEN) && !(flags & FLAG_OPEN_ALWAYS)) {
     NOTREACHED();
     errno = EOPNOTSUPP;
@@ -198,8 +215,10 @@ void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
   }
 
   if (flags & FLAG_WRITE && flags & FLAG_READ) {
+    // 读写标志
     open_flags |= O_RDWR;
   } else if (flags & FLAG_WRITE) {
+    // 写入标志
     open_flags |= O_WRONLY;
   } else if (!(flags & FLAG_READ) &&
              !(flags & FLAG_WRITE_ATTRIBUTES) &&
@@ -208,9 +227,11 @@ void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
     NOTREACHED();
   }
 
+  // 设备文件（串口）
   if (flags & FLAG_TERMINAL_DEVICE)
     open_flags |= O_NOCTTY | O_NDELAY;
 
+  // 附加方式打开文件。必须是读写，或者只写方式。
   if (flags & FLAG_APPEND && flags & FLAG_READ)
     open_flags |= O_APPEND | O_RDWR;
   else if (flags & FLAG_APPEND)
@@ -223,11 +244,14 @@ void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
   mode |= S_IRGRP | S_IROTH;
 #endif
 
+  // 忽略 EINTR 信号中断，打开文件。
   int descriptor = HANDLE_EINTR(open(name.value().c_str(), open_flags, mode));
 
   if (flags & FLAG_OPEN_ALWAYS) {
     if (descriptor < 0) {
+      // 打开失败（可能文件不存在），创建新文件。
       open_flags |= O_CREAT;
+      // 独占访问标志。文件已存在，即创建失败。对已存在文件，独占访问，请考虑使用 Lock() 
       if (flags & FLAG_EXCLUSIVE_READ || flags & FLAG_EXCLUSIVE_WRITE)
         open_flags |= O_EXCL;   // together with O_CREAT implies O_NOFOLLOW
 
@@ -237,6 +261,7 @@ void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
     }
   }
 
+  // 打开失败，保存错误信息
   if (descriptor < 0) {
     error_details_ = File::OSErrorToFileError(errno);
     return;
@@ -245,9 +270,32 @@ void File::InitializeUnsafe(const FilePath& name, uint32_t flags) {
   if (flags & (FLAG_CREATE_ALWAYS | FLAG_CREATE))
     created_ = true;
 
+  // @tips
+  // 从文件系统中删除一个名称。如果名称是文件的最后一个连接，并且没有其它进程将文件打开，名称
+  // 对应的文件会实际被删除。
+  // 每一个文件，都可以通过 struct stat 的结构体来获得文件信息，其中一个成员 st_nlink 代表
+  // 文件的链接数。
+  // 当通过 shell 的 touch 命令或者在程序中 open 一个带有 O_CREAT 的不存在的文件时，文件
+  // 的链接数为 1 。通常 open 一个已存在的文件不会影响文件的链接数。open 的作用只是使调用进
+  // 程与文件之间建立一种访问关系，即 open 之后返回 fd ，调用进程可以通过 fd 来 read 、write 、
+  // ftruncate 等等一系列对文件的操作。
+  // close() 是消除这种调用进程与文件之间的访问关系。不会影响文件的链接数。在调用 close 时，
+  // 内核会检查打开该文件的进程数，如果此数为 0 ，进一步检查文件的链接数，如果这个数也为 0 ，
+  // 那么就删除文件。
+  // link 函数是创建一个新目录项，并且增加一个链接数。 unlink 函数删除目录项，并且减少一个链
+  // 接数。如果链接数达到 0 并且没有任何进程打开该文件，该文件内容才被真正删除。如果在 unlilnk 
+  // 之前没有 close，那么依旧可以访问文件内容。（！！！注意）。
+  // 
+  // 综上所诉，真正影响链接数的操作是 link、 unlink 以及 open 的创建。
+  // 删除文件内容的真正含义是文件的链接数为 0 ，而这个操作的本质完成者是 unlink 。close 能够
+  // 实施删除文件内容的操作。同时，必定是因为在 close 之前有一个 unlink 操作才能删除。
+  // 
+  // 
+  // 关闭文件时，随即删除。
   if (flags & FLAG_DELETE_ON_CLOSE)
     unlink(name.value().c_str());
 
+  // 是否异步打开文件
   async_ = ((flags & FLAG_ASYNC) == FLAG_ASYNC);
   error_details_ = FILE_OK;
   file_.reset(descriptor);
@@ -262,6 +310,7 @@ PlatformFile File::GetPlatformFile() const {
   return file_.get();
 }
 
+// 释放当前文件文件描述符所有权，并返回之。
 PlatformFile File::TakePlatformFile() {
   return file_.release();
 }
@@ -295,6 +344,7 @@ int File::Read(int64_t offset, char* data, int size) {
   if (size < 0)
     return -1;
 
+  // 读取指定长度文件内容（不适用流文件）。
   int bytes_read = 0;
   int rv;
   do {
@@ -347,6 +397,7 @@ int File::ReadAtCurrentPosNoBestEffort(char* data, int size) {
 int File::Write(int64_t offset, const char* data, int size) {
   butil::ThreadRestrictions::AssertIOAllowed();
 
+  // 是否使用 FLAG_APPEND 打开文件。
   if (IsOpenAppend(file_.get()))
     return WriteAtCurrentPos(data, size);
 

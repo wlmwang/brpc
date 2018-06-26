@@ -129,6 +129,7 @@ bool VerifySpecificPathControlledByUser(const FilePath& path,
   return true;
 }
 
+// 生成临时文件名称模版以供 mkstemp() 函数使用。
 std::string TempFileName() {
 #if defined(OS_MACOSX)
   return StringPrintf(".%s.XXXXXX", butil::mac::BaseBundleID());
@@ -144,11 +145,16 @@ std::string TempFileName() {
 // Creates and opens a temporary file in |directory|, returning the
 // file descriptor. |path| is set to the temporary file path.
 // This function does NOT unlink() the file.
+// 
+// 在 |directory| 目录下创建并打开临时文件，返回文件描述符。 |path| 被设置
+// 为临时文件路径。该功能不会 unlink() 文件。
 int CreateAndOpenFdForTemporaryFile(FilePath directory, FilePath* path) {
   ThreadRestrictions::AssertIOAllowed();  // For call to mkstemp().
   *path = directory.Append(butil::TempFileName());
   const std::string& tmpdir_string = path->value();
   // this should be OK since mkstemp just replaces characters in place
+  // 
+  // 这应该是确定的，因为 mkstemp 只是替换了字符
   char* buffer = const_cast<char*>(tmpdir_string.c_str());
 
   return HANDLE_EINTR(mkstemp(buffer));
@@ -196,6 +202,10 @@ FilePath MakeAbsoluteFilePath(const FilePath& input) {
 // which works both with and without the recursive flag.  I'm not sure we need
 // that functionality. If not, remove from file_util_win.cc, otherwise add it
 // here.
+// 
+// TODO（erikkay）：这个 Windows 版本接受像 "foo/bar/*" 这样的路径，它既可以使用递归
+// 标志也可以不使用。我不确定我们需要这种功能。如果没有，请从 file_util_win.cc 中删除，
+// 否则将其添加到此处。
 bool DeleteFile(const FilePath& path, bool recursive) {
   ThreadRestrictions::AssertIOAllowed();
   const char* path_str = path.value().c_str();
@@ -203,6 +213,11 @@ bool DeleteFile(const FilePath& path, bool recursive) {
   int test = CallLstat(path_str, &file_info);
   if (test != 0) {
     // The Windows version defines this condition as success.
+    // 
+    // Windows 版本将此条件定义为成功。
+    // 
+    // ENOENT: 指定路径不存在（文件、目录）
+    // ENOTDIR: 目录名称中给定的某个上级目录实际不是目录。
     bool ret = (errno == ENOENT || errno == ENOTDIR);
     return ret;
   }
@@ -211,6 +226,7 @@ bool DeleteFile(const FilePath& path, bool recursive) {
   if (!recursive)
     return (rmdir(path_str) == 0);
 
+  // 递归删除子目录及其内容
   bool success = true;
   std::stack<std::string> directories;
   directories.push(path.value());
@@ -244,6 +260,7 @@ bool ReplaceFile(const FilePath& from_path,
   return false;
 }
 
+// 复制给定的路径，以及可选的所有子目录及其内容。
 bool CopyDirectory(const FilePath& from_path,
                    const FilePath& to_path,
                    bool recursive) {
@@ -251,6 +268,8 @@ bool CopyDirectory(const FilePath& from_path,
   // Some old callers of CopyDirectory want it to support wildcards.
   // After some discussion, we decided to fix those callers.
   // Break loudly here if anyone tries to do this.
+  // 
+  // 不支持通配符
   DCHECK(to_path.value().find('*') == std::string::npos);
   DCHECK(from_path.value().find('*') == std::string::npos);
 
@@ -259,7 +278,9 @@ bool CopyDirectory(const FilePath& from_path,
   }
 
   // This function does not properly handle destinations within the source
-  FilePath real_to_path = to_path;
+  // 
+  // 此功能无法正确处理源内的目标
+  FilePath real_to_path = to_path;  // 绝对路径
   if (PathExists(real_to_path)) {
     real_to_path = MakeAbsoluteFilePath(real_to_path);
     if (real_to_path.empty())
@@ -272,6 +293,7 @@ bool CopyDirectory(const FilePath& from_path,
   FilePath real_from_path = MakeAbsoluteFilePath(from_path);
   if (real_from_path.empty())
     return false;
+  // to_path 不能包含 from_path 路径
   if (real_to_path.value().size() >= real_from_path.value().size() &&
       real_to_path.value().compare(0, real_from_path.value().size(),
                                    real_from_path.value()) == 0) {
@@ -285,6 +307,9 @@ bool CopyDirectory(const FilePath& from_path,
 
   // We have to mimic windows behavior here. |to_path| may not exist yet,
   // start the loop with |to_path|.
+  // 
+  // 我们必须在这里模仿 windows 的行为。 |to_path| 可能还不存在，用 |to_path| 开始
+  // 循环。
   struct stat from_stat;
   FilePath current = from_path;
   if (stat(from_path.value().c_str(), &from_stat) < 0) {
@@ -351,11 +376,13 @@ bool PathExists(const FilePath& path) {
     return ContentUriExists(path);
   }
 #endif
+  // 测试文件是否存在
   return access(path.value().c_str(), F_OK) == 0;
 }
 
 bool PathIsWritable(const FilePath& path) {
   ThreadRestrictions::AssertIOAllowed();
+  // 测试写许可权
   return access(path.value().c_str(), W_OK) == 0;
 }
 
@@ -370,6 +397,7 @@ bool DirectoryExists(const FilePath& path) {
 bool ReadFromFD(int fd, char* buffer, size_t bytes) {
   size_t total_read = 0;
   while (total_read < bytes) {
+    // 忽略 EINTR 错误
     ssize_t bytes_read =
         HANDLE_EINTR(read(fd, buffer + total_read, bytes - total_read));
     if (bytes_read <= 0)
@@ -387,6 +415,7 @@ bool CreateSymbolicLink(const FilePath& target_path,
                    symlink_path.value().c_str()) != -1;
 }
 
+// 读取给定的 |symlink| 的内容，将 "真实路径" 写入 |target| 。失败时返回 false 
 bool ReadSymbolicLink(const FilePath& symlink_path, FilePath* target_path) {
   DCHECK(!symlink_path.empty());
   DCHECK(target_path);
@@ -438,6 +467,8 @@ bool SetPosixFilePermissions(const FilePath& path,
 
 #if !defined(OS_MACOSX)
 // This is implemented in file_util_mac.mm for Mac.
+// 
+// 这在 Mac 的 file_util_mac.mm 中实现
 bool GetTempDir(FilePath* path) {
   const char* tmp = getenv("TMPDIR");
   if (tmp) {
@@ -450,11 +481,15 @@ bool GetTempDir(FilePath* path) {
 #endif  // !defined(OS_MACOSX)
 
 #if !defined(OS_MACOSX)  // Mac implementation is in file_util_mac.mm.
+// 这在 Mac 的 file_util_mac.mm 中实现
 FilePath GetHomeDir() {
 #if defined(OS_CHROMEOS)
   if (SysInfo::IsRunningOnChromeOS()) {
     // On Chrome OS chrome::DIR_USER_DATA is overridden with a primary user
     // homedir once it becomes available. Return / as the safe option.
+    // 
+    // Chrome OS chrome::DIR_USER_DATA 一旦变为可用，就会被主用户 homedir 覆盖。
+    // 返回 / 作为安全选项。
     return FilePath("/");
   }
 #endif
@@ -472,6 +507,10 @@ FilePath GetHomeDir() {
   // restrictions. The path service will cache the result which limits the
   // badness of blocking on I/O. As a result, we don't have a thread
   // restriction here.
+  // 
+  // g_get_home_dir 调用 getpwent ，它可以通过 LDAP 调用，因此可以执行 I/O 。但是，
+  // 很少会出现 $HOME 没有定义的情况，这通常是从没有线程限制的路径服务中调用的。路径服务
+  // 将缓存结果，这会限制 I/O 上阻塞的不良情况。因此，我们在这里没有线程限制。
   home_dir = g_get_home_dir();
   if (home_dir && home_dir[0])
     return FilePath(home_dir);
@@ -503,6 +542,7 @@ FILE* CreateAndOpenTemporaryFileInDir(const FilePath& dir, FilePath* path) {
   if (fd < 0)
     return NULL;
 
+  // 打开带缓冲文件句柄
   FILE* file = fdopen(fd, "a+");
   if (!file)
     close(fd);
@@ -526,6 +566,8 @@ static bool CreateTemporaryDirInDirImpl(const FilePath& base_dir,
   std::string sub_dir_string = sub_dir.value();
 
   // this should be OK since mkdtemp just replaces characters in place
+  // 
+  // 这应该是确定的，因为 mkdtemp 只是替换字符
   char* buffer = const_cast<char*>(sub_dir_string.c_str());
   char* dtemp = mkdtemp(buffer);
   if (!dtemp) {
@@ -857,6 +899,9 @@ bool MoveUnsafe(const FilePath& from_path, const FilePath& to_path) {
   ThreadRestrictions::AssertIOAllowed();
   // Windows compatibility: if to_path exists, from_path and to_path
   // must be the same type, either both files, or both directories.
+  // 
+  // Windows 兼容：如果 |to_path| 存在，则 |from_path| 和 |to_path| 必须是
+  // 相同的类型，即，无论是两个文件还是两个目录。
   stat_wrapper_t to_file_info;
   if (CallStat(to_path.value().c_str(), &to_file_info) == 0) {
     stat_wrapper_t from_file_info;
@@ -868,12 +913,32 @@ bool MoveUnsafe(const FilePath& from_path, const FilePath& to_path) {
     }
   }
 
+  // @tips
+  // \file <stdio.h>
+  // int rename(char* from_path, char* to_path);
+  // 重命名文件、改变文件路径或更改目录名称。修改文件名成功则返回 0 ，
+  // 否则返回 -1 。
+  // 
+  // 重命名文件：
+  // 1. 如果 to_path 指定的文件存在，则会被删除。
+  // 2. 如果 to_path 与 from_path 不在一个目录下，则相当于移动文件。
+  // 重命名目录：
+  // 1. 如果 from_path 和 to_path 都为目录，则重命名目录。
+  // 2. 如果 to_path 指定的目录存在且为空目录，则先将 to_path 删除。
+  // 3. 对于 to_path 和 from_path 两个目录，调用进程必须有写权限。
+  // 4. 重命名目录时， to_path 不能包含 from_path 作为其路径前缀。例如，
+  //  不能将 /usr 更名为 /usr/foo/testdir ，因为老名字 (/usr) 是新名字
+  //  的路径前缀，因而不能将其删除。
+  // 
+  // 注： from_path 必须和 to_path 位于同一文件系统，否则会调用失败。
   if (rename(from_path.value().c_str(), to_path.value().c_str()) == 0)
     return true;
 
+  // 拷贝目录到目标路径
   if (!CopyDirectory(from_path, to_path, true))
     return false;
 
+  // 删除原始路径
   DeleteFile(from_path, true);
   return true;
 }

@@ -11,6 +11,9 @@
 
 // We provide a simple one argument spin wait (for 1 second), and a generic
 // spin wait (for longer periods of time).
+// 
+// 提供一个简单的单参数自旋等待（1 秒）和一个通用自旋等待（更长的时间）宏。
+// 该文件仅提供用于测试的宏。不要在生产代码中使用（有更好的实现方式）
 
 #ifndef BUTIL_SYNCHRONIZATION_SPIN_WAIT_H_
 #define BUTIL_SYNCHRONIZATION_SPIN_WAIT_H_

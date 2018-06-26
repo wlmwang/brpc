@@ -33,6 +33,8 @@ static const int kMaxUniqueFiles = 100;
 
 }  // namespace
 
+// 返回 |root_path| 下的所有文件（含子目录递归计算）的总字节数。如果路径不存在，
+// 则函数返回 0
 int64_t ComputeDirectorySize(const FilePath& root_path) {
   int64_t running_size = 0;
   FileEnumerator file_iter(root_path, true, FileEnumerator::FILES);
@@ -57,6 +59,9 @@ bool ContentsEqual(const FilePath& filename1, const FilePath& filename2) {
   // We open the file in binary format even if they are text files because
   // we are just comparing that bytes are exactly same in both files and not
   // doing anything smart with text formatting.
+  // 
+  // 以二进制格式打开文件，即使它们是文本文件，因为我们只是比较两个文件中的字节完全相同，
+  // 并且没有对文本格式进行任何智能处理。
   std::ifstream file1(filename1.value().c_str(),
                       std::ios::in | std::ios::binary);
   std::ifstream file2(filename2.value().c_str(),
@@ -64,12 +69,16 @@ bool ContentsEqual(const FilePath& filename1, const FilePath& filename2) {
 
   // Even if both files aren't openable (and thus, in some sense, "equal"),
   // any unusable file yields a result of "false".
+  // 
+  // 任何不可打开、不可用的文件都会导致 "false"
   if (!file1.is_open() || !file2.is_open())
     return false;
 
+  // 循环比较字节
   const int BUFFER_SIZE = 2056;
   char buffer1[BUFFER_SIZE], buffer2[BUFFER_SIZE];
   do {
+    // 读取指定字节
     file1.read(buffer1, BUFFER_SIZE);
     file2.read(buffer2, BUFFER_SIZE);
 
@@ -88,26 +97,34 @@ bool ContentsEqual(const FilePath& filename1, const FilePath& filename2) {
 }
 
 bool TextContentsEqual(const FilePath& filename1, const FilePath& filename2) {
+  // 已文本文件方式打开文件。
   std::ifstream file1(filename1.value().c_str(), std::ios::in);
   std::ifstream file2(filename2.value().c_str(), std::ios::in);
 
   // Even if both files aren't openable (and thus, in some sense, "equal"),
   // any unusable file yields a result of "false".
+  // 
+  // 任何不可打开、不可用的文件都会导致 "false"
   if (!file1.is_open() || !file2.is_open())
     return false;
 
   do {
+    // 读取整行
     std::string line1, line2;
     getline(file1, line1);
     getline(file2, line2);
 
     // Check for mismatched EOF states, or any error state.
+    // 
+    // 检查不匹配的 EOF 状态或任何错误状态。
     if ((file1.eof() != file2.eof()) ||
         file1.bad() || file2.bad()) {
       return false;
     }
 
     // Trim all '\r' and '\n' characters from the end of the line.
+    // 
+    // 从行尾修剪所有 '\r' 和 '\n' 字符。
     std::string::size_type end1 = line1.find_last_not_of("\r\n");
     if (end1 == std::string::npos)
       line1.clear();
@@ -134,18 +151,21 @@ bool ReadFileToString(const FilePath& path,
     contents->clear();
   if (path.ReferencesParent())
     return false;
+  // 二进制方式打开文件
   FILE* file = OpenFile(path, "rb");
   if (!file) {
     return false;
   }
 
-  char buf[1 << 16];
+  char buf[1 << 16]; // 64k
   size_t len;
   size_t size = 0;
   bool read_status = true;
 
   // Many files supplied in |path| have incorrect size (proc files etc).
   // Hence, the file is read sequentially as opposed to a one-shot read.
+  // 
+  // 顺序读取文件
   while ((len = fread(buf, 1, sizeof(buf), file)) > 0) {
     if (contents)
       contents->append(buf, std::min(len, max_size - size));

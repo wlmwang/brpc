@@ -19,10 +19,15 @@ namespace {
 // the possible values of an unsigned char.  Thus it should be be declared
 // as follows:
 //   bool table[UCHAR_MAX + 1]
+//   
+// 对于 |characters_wanted| 中的每个字符，将 |table| 数组中与该字符的 ASCII 码
+// 对应的索引设置为 1. 实现一个类似 boomfilter ，方便判断字符是否在集合中。用在 
+// find_.*_of 方法中
 inline void BuildLookupTable(const StringPiece& characters_wanted,
                              bool* table) {
   const size_t length = characters_wanted.length();
   const char* const data = characters_wanted.data();
+  // 对索引位置位
   for (size_t i = 0; i < length; ++i) {
     table[static_cast<unsigned char>(data[i])] = true;
   }
@@ -193,6 +198,8 @@ size_t rfind(const StringPiece16& self, char16 c, size_t pos) {
 }
 
 // 8-bit version using lookup table.
+// 
+// 8-bit 版本使用查找表(bitset)算法
 size_t find_first_of(const StringPiece& self,
                      const StringPiece& s,
                      size_t pos) {
@@ -203,8 +210,10 @@ size_t find_first_of(const StringPiece& self,
   if (s.size() == 1)
     return find(self, s.data()[0], pos);
 
+  // 创建 bitset 结构
   bool lookup[UCHAR_MAX + 1] = { false };
   BuildLookupTable(s, lookup);
+  // 查找第一个满足的索引值
   for (size_t i = pos; i < self.size(); ++i) {
     if (lookup[static_cast<unsigned char>(self.data()[i])]) {
       return i;
@@ -214,6 +223,8 @@ size_t find_first_of(const StringPiece& self,
 }
 
 // 16-bit brute force version.
+// 
+// 16-bit 版本使用"蛮力"查找（std::find_first_of()）
 size_t find_first_of(const StringPiece16& self,
                      const StringPiece16& s,
                      size_t pos) {
@@ -225,6 +236,8 @@ size_t find_first_of(const StringPiece16& self,
 }
 
 // 8-bit version using lookup table.
+// 
+// 8-bit 版本使用查找表(bitset)算法
 size_t find_first_not_of(const StringPiece& self,
                          const StringPiece& s,
                          size_t pos) {
@@ -238,8 +251,10 @@ size_t find_first_not_of(const StringPiece& self,
   if (s.size() == 1)
     return find_first_not_of(self, s.data()[0], pos);
 
+  // 创建 bitset 结构
   bool lookup[UCHAR_MAX + 1] = { false };
   BuildLookupTable(s, lookup);
+  // 查找第一个不满足的索引值
   for (size_t i = pos; i < self.size(); ++i) {
     if (!lookup[static_cast<unsigned char>(self.data()[i])]) {
       return i;
@@ -249,6 +264,8 @@ size_t find_first_not_of(const StringPiece& self,
 }
 
 // 16-bit brute-force version.
+// 
+// 16-bit 版本使用"蛮力"查找（双重循环）
 BUTIL_EXPORT size_t find_first_not_of(const StringPiece16& self,
                                      const StringPiece16& s,
                                      size_t pos) {

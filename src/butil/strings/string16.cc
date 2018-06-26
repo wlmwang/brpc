@@ -24,6 +24,8 @@ int c16memcmp(const char16* s1, const char16* s2, size_t n) {
   while (n-- > 0) {
     if (*s1 != *s2) {
       // We cannot use (*s1 - *s2) because char16 is unsigned.
+      // 
+      //  不能使用 (*s1 - *s2) 作为返回，因为他是 unsigned
       return ((*s1 < *s2) ? -1 : 1);
     }
     ++s1;
@@ -67,6 +69,7 @@ char16* c16memset(char16* s, char16 c, size_t n) {
   return s_orig;
 }
 
+// UTF-16 转换成 UTF-8 输出
 std::ostream& operator<<(std::ostream& out, const string16& str) {
   return out << UTF16ToUTF8(str);
 }
@@ -77,6 +80,7 @@ void PrintTo(const string16& str, std::ostream* out) {
 
 }  // namespace butil
 
+// std::basic_string 外部模版显式实例化
 template class std::basic_string<butil::char16, butil::string16_char_traits>;
 
 #endif  // WCHAR_T_IS_UTF32

@@ -30,10 +30,12 @@
 
 namespace butil {
 
+// StringType 类型可能为 std::string 或 std::wstring
 typedef FilePath::StringType StringType;
 
 namespace {
 
+// 公共文件双后缀
 const char* kCommonDoubleExtensionSuffixes[] = { "gz", "z", "bz2" };
 const char* kCommonDoubleExtensions[] = { "user.js" };
 
@@ -44,10 +46,16 @@ const FilePath::CharType kStringTerminator = FILE_PATH_LITERAL('\0');
 // otherwise returns npos.  This can only be true on Windows, when a pathname
 // begins with a letter followed by a colon.  On other platforms, this always
 // returns npos.
+// 
+// 如果 FilePath 包含驱动器盘符规范，则返回驱动器盘符规范的最后一个字符的位置(1)，否则
+// 返回 StringType::npos 。这只有在 Windows 上才可以，一个路径名以一个字母后跟一个冒
+// 号开头。在其他平台上，这总是返回 StringType::npos
 StringType::size_type FindDriveLetter(const StringType& path) {
 #if defined(FILE_PATH_USES_DRIVE_LETTERS)
   // This is dependent on an ASCII-based character set, but that's a
   // reasonable assumption.  iswalpha can be too inclusive here.
+  // 
+  // 假设是基于 ASCII 的字符集。
   if (path.length() >= 2 && path[1] == L':' &&
       ((path[0] >= L'A' && path[0] <= L'Z') ||
        (path[0] >= L'a' && path[0] <= L'z'))) {
@@ -57,6 +65,7 @@ StringType::size_type FindDriveLetter(const StringType& path) {
   return StringType::npos;
 }
 
+// 忽略大小写比较路径字符串
 #if defined(FILE_PATH_USES_DRIVE_LETTERS)
 bool EqualDriveLetterCaseInsensitive(const StringType& a,
                                      const StringType& b) {
@@ -66,34 +75,46 @@ bool EqualDriveLetterCaseInsensitive(const StringType& a,
   if (a_letter_pos == StringType::npos || b_letter_pos == StringType::npos)
     return a == b;
 
+  // C: D:
   StringType a_letter(a.substr(0, a_letter_pos + 1));
   StringType b_letter(b.substr(0, b_letter_pos + 1));
+  // 使用双字节版本前缀匹配函数 StartsWith ，忽略大小写
+  // Windows 路径编码使用 wchar_t 编码
   if (!StartsWith(a_letter, b_letter, false))
     return false;
 
+  // 比较字符串剩余部分
   StringType a_rest(a.substr(a_letter_pos + 1));
   StringType b_rest(b.substr(b_letter_pos + 1));
   return a_rest == b_rest;
 }
 #endif  // defined(FILE_PATH_USES_DRIVE_LETTERS)
 
+// 是否绝对路径，开头必须是： C:\ 或者 \\ 或者 // 或者 /
 bool IsPathAbsolute(const StringType& path) {
 #if defined(FILE_PATH_USES_DRIVE_LETTERS)
   StringType::size_type letter = FindDriveLetter(path);
   if (letter != StringType::npos) {
     // Look for a separator right after the drive specification.
+    // 
+    // 在驱动器规格后查找分隔符（必须有分隔符）
     return path.length() > letter + 1 &&
         FilePath::IsSeparator(path[letter + 1]);
   }
   // Look for a pair of leading separators.
+  // 
+  // 一对分隔符打头（即， \\ //）
   return path.length() > 1 &&
       FilePath::IsSeparator(path[0]) && FilePath::IsSeparator(path[1]);
 #else  // FILE_PATH_USES_DRIVE_LETTERS
   // Look for a separator in the first position.
+  // 
+  // 在第一个位置寻找分隔符（根路径 /）
   return path.length() > 0 && FilePath::IsSeparator(path[0]);
 #endif  // FILE_PATH_USES_DRIVE_LETTERS
 }
 
+// 是否输入 |input| 全部是分隔字符串
 bool AreAllSeparators(const StringType& input) {
   for (StringType::const_iterator it = input.begin();
       it != input.end(); ++it) {
@@ -107,6 +128,9 @@ bool AreAllSeparators(const StringType& input) {
 // Find the position of the '.' that separates the extension from the rest
 // of the file name. The position is relative to BaseName(), not value().
 // Returns npos if it can't find an extension.
+// 
+// 寻找最后一个扩展名分隔符 ('.') 位置。该位置是相对于 BaseName() ，而不是 value() 。
+// 如果找不到扩展名分隔符，则返回 StringType::npos 。
 StringType::size_type FinalExtensionSeparatorPosition(const StringType& path) {
   // Special case "." and ".."
   if (path == FilePath::kCurrentDirectory || path == FilePath::kParentDirectory)
@@ -119,13 +143,20 @@ StringType::size_type FinalExtensionSeparatorPosition(const StringType& path) {
 // characters when the rightmost extension component is a common double
 // extension (gz, bz2, Z).  For example, foo.tar.gz or foo.tar.Z would have
 // extension components of '.tar.gz' and '.tar.Z' respectively.
+// 
+// 与上述相同，但是当最右侧的扩展名是公共双扩展名 (gz, bz2, Z) 时，允许附带最多 4 个字符的第
+// 二个扩展名。例如，foo.tar.gz 或 foo.tar.Z 将分别具有 '.tar.gz' 和 '.tar.Z' 的扩展名。
 StringType::size_type ExtensionSeparatorPosition(const StringType& path) {
+  // 最右侧扩展分隔符位置
   const StringType::size_type last_dot = FinalExtensionSeparatorPosition(path);
 
   // No extension, or the extension is the whole filename.
+  // 
+  // 没有扩展名，或者扩展名是整个文件名。
   if (last_dot == StringType::npos || last_dot == 0U)
     return last_dot;
 
+  // 查找第二个扩展分隔符位置
   const StringType::size_type penultimate_dot =
       path.rfind(FilePath::kExtensionSeparator, last_dot - 1);
   const StringType::size_type last_separator =
@@ -138,6 +169,7 @@ StringType::size_type ExtensionSeparatorPosition(const StringType& path) {
     return last_dot;
   }
 
+  // 最右侧的扩展名是否是公共双扩展名。
   for (size_t i = 0; i < arraysize(kCommonDoubleExtensions); ++i) {
     StringType extension(path, penultimate_dot + 1);
     if (LowerCaseEqualsASCII(extension, kCommonDoubleExtensions[i]))
@@ -158,6 +190,8 @@ StringType::size_type ExtensionSeparatorPosition(const StringType& path) {
 }
 
 // Returns true if path is "", ".", or "..".
+// 
+// 路径是否是 "", ".", ".." 其中一个
 bool IsEmptyOrSpecialCase(const StringType& path) {
   // Special cases "", ".", and ".."
   if (path.empty() || path == FilePath::kCurrentDirectory ||
@@ -177,6 +211,7 @@ FilePath::FilePath(const FilePath& that) : path_(that.path_) {
 }
 
 FilePath::FilePath(const StringType& path) : path_(path) {
+  // 去除 '\0' 的特殊字符。
   StringType::size_type nul_pos = path_.find(kStringTerminator);
   if (nul_pos != StringType::npos)
     path_.erase(nul_pos, StringType::npos);
@@ -207,6 +242,8 @@ bool FilePath::operator!=(const FilePath& that) const {
 }
 
 // static
+// 
+// 返回字符 |character| 是否为路径分隔符
 bool FilePath::IsSeparator(CharType character) {
   for (size_t i = 0; i < kSeparatorsLength - 1; ++i) {
     if (character == kSeparators[i]) {
@@ -217,6 +254,9 @@ bool FilePath::IsSeparator(CharType character) {
   return false;
 }
 
+// 返回当前路径的所有组件（目录）的数组
+// Posix:  "/foo/bar"  ->  [ "/", "foo", "bar" ]
+// Windows:  "C:\foo\bar"  ->  [ "C:", "\\", "foo", "bar" ]
 void FilePath::GetComponents(std::vector<StringType>* components) const {
   DCHECK(components);
   if (!components)
@@ -230,6 +270,8 @@ void FilePath::GetComponents(std::vector<StringType>* components) const {
   FilePath base;
 
   // Capture path components.
+  // 
+  // 捕获路径组件
   while (current != current.DirName()) {
     base = current.BaseName();
     if (!AreAllSeparators(base.value()))
@@ -238,17 +280,22 @@ void FilePath::GetComponents(std::vector<StringType>* components) const {
   }
 
   // Capture root, if any.
+  // 
+  // 捕获根目录
   base = current.BaseName();
   if (!base.value().empty() && base.value() != kCurrentDirectory)
     ret_val.push_back(current.BaseName().value());
 
   // Capture drive letter, if any.
+  // 
+  // 捕获驱动器盘符
   FilePath dir = current.DirName();
   StringType::size_type letter = FindDriveLetter(dir.value());
   if (letter != StringType::npos) {
     ret_val.push_back(StringType(dir.value(), 0, letter + 1));
   }
 
+  // 反转路径组件
   *components = std::vector<StringType>(ret_val.rbegin(), ret_val.rend());
 }
 
@@ -256,12 +303,13 @@ bool FilePath::IsParent(const FilePath& child) const {
   return AppendRelativePath(child, NULL);
 }
 
+// 将 |child| 相对当前路径部分追加到 path（如果不为空）并返回 true 
 bool FilePath::AppendRelativePath(const FilePath& child,
                                   FilePath* path) const {
   std::vector<StringType> parent_components;
   std::vector<StringType> child_components;
-  GetComponents(&parent_components);
-  child.GetComponents(&child_components);
+  GetComponents(&parent_components);  // 获取当前路径组件
+  child.GetComponents(&child_components); // 获取 child 路径组件
 
   if (parent_components.empty() ||
       parent_components.size() >= child_components.size())
@@ -276,6 +324,9 @@ bool FilePath::AppendRelativePath(const FilePath& child,
   // Windows can access case sensitive filesystems, so component
   // comparisions must be case sensitive, but drive letters are
   // never case sensitive.
+  // 
+  // Windows 可以访问区分大小写的文件系统，因此组件比较必须区分大小写，但
+  // 驱动器号不区分大小写。
   if ((FindDriveLetter(*parent_comp) != StringType::npos) &&
       (FindDriveLetter(*child_comp) != StringType::npos)) {
     if (!StartsWith(*parent_comp, *child_comp, false))
@@ -285,6 +336,7 @@ bool FilePath::AppendRelativePath(const FilePath& child,
   }
 #endif  // defined(FILE_PATH_USES_DRIVE_LETTERS)
 
+  // 循环比较组件
   while (parent_comp != parent_components.end()) {
     if (*parent_comp != *child_comp)
       return false;
@@ -292,6 +344,7 @@ bool FilePath::AppendRelativePath(const FilePath& child,
     ++child_comp;
   }
 
+  // 循环将相对目录添加到 |path| 中
   if (path != NULL) {
     for (; child_comp != child_components.end(); ++child_comp) {
       *path = path->Append(*child_comp);
@@ -304,36 +357,54 @@ bool FilePath::AppendRelativePath(const FilePath& child,
 // guaranteed to not modify their input strings, and in fact are implemented
 // differently in this regard on different platforms.  Don't use them, but
 // adhere to their behavior.
+// 
+// 不保证 libgen 的 dirname 和 basename 是线程安全的，并且不保证不修改它们的输入字符串，
+// 实际上在不同的平台上在这方面的实现方式是不同的。不要使用它们。
 FilePath FilePath::DirName() const {
   FilePath new_path(path_);
-  new_path.StripTrailingSeparatorsInternal();
+  new_path.StripTrailingSeparatorsInternal(); // 删除尾分隔符
 
   // The drive letter, if any, always needs to remain in the output.  If there
   // is no drive letter, as will always be the case on platforms which do not
   // support drive letters, letter will be npos, or -1, so the comparisons and
   // resizes below using letter will still be valid.
+  // 
+  // 驱动器盘符（如果有）始终需要保留在输出中。如果没有驱动器盘符，在不支持驱动器盘符的平台
+  // 上总会出现这种情况，则 letter 为 npos 或 -1 ，因此在使用字母下面进行比较和调整大小
+  // 仍然有效。
   StringType::size_type letter = FindDriveLetter(new_path.path_);
 
+  // 查找路径最右侧分隔符
   StringType::size_type last_separator =
       new_path.path_.find_last_of(kSeparators, StringType::npos,
                                   kSeparatorsLength - 1);
   if (last_separator == StringType::npos) {
     // path_ is in the current directory.
+    // 
+    // 当前目录
     new_path.path_.resize(letter + 1);
   } else if (last_separator == letter + 1) {
     // path_ is in the root directory.
+    // 
+    // 根目录
     new_path.path_.resize(letter + 2);
   } else if (last_separator == letter + 2 &&
              IsSeparator(new_path.path_[letter + 1])) {
     // path_ is in "//" (possibly with a drive letter); leave the double
     // separator intact indicating alternate root.
+    // 
+    // 可能是形如路径格式为： C://
     new_path.path_.resize(letter + 3);
   } else if (last_separator != 0) {
     // path_ is somewhere else, trim the basename.
+    // 
+    // path_ 在其他地方，修剪 basename
     new_path.path_.resize(last_separator);
   }
 
+  // 删除尾分隔符
   new_path.StripTrailingSeparatorsInternal();
+  // 如果仅包含一个组件，则返回 kCurrentDirectory
   if (!new_path.path_.length())
     new_path.path_ = kCurrentDirectory;
 
@@ -345,6 +416,8 @@ FilePath FilePath::BaseName() const {
   new_path.StripTrailingSeparatorsInternal();
 
   // The drive letter, if any, is always stripped.
+  // 
+  // 查找盘符
   StringType::size_type letter = FindDriveLetter(new_path.path_);
   if (letter != StringType::npos) {
     new_path.path_.erase(0, letter + 1);
@@ -352,6 +425,8 @@ FilePath FilePath::BaseName() const {
 
   // Keep everything after the final separator, but if the pathname is only
   // one character and it's a separator, leave it alone.
+  // 
+  // 保留最后一个分隔符后面的所有内容，但如果路径名只有一个字符并且是分隔符，也将保留。
   StringType::size_type last_separator =
       new_path.path_.find_last_of(kSeparators, StringType::npos,
                                   kSeparatorsLength - 1);
@@ -363,6 +438,7 @@ FilePath FilePath::BaseName() const {
   return new_path;
 }
 
+// 返回扩展名（包括双扩展）
 StringType FilePath::Extension() const {
   FilePath base(BaseName());
   const StringType::size_type dot = ExtensionSeparatorPosition(base.path_);
@@ -372,6 +448,7 @@ StringType FilePath::Extension() const {
   return base.path_.substr(dot, StringType::npos);
 }
 
+// 返回最右侧扩展名
 StringType FilePath::FinalExtension() const {
   FilePath base(BaseName());
   const StringType::size_type dot = FinalExtensionSeparatorPosition(base.path_);
@@ -381,6 +458,7 @@ StringType FilePath::FinalExtension() const {
   return base.path_.substr(dot, StringType::npos);
 }
 
+// 返回移除扩展名（包括双扩展）的 FilePath 副本
 FilePath FilePath::RemoveExtension() const {
   if (Extension().empty())
     return *this;
@@ -392,6 +470,7 @@ FilePath FilePath::RemoveExtension() const {
   return FilePath(path_.substr(0, dot));
 }
 
+// 返回移除最右侧扩展名的 FilePath 副本
 FilePath FilePath::RemoveFinalExtension() const {
   if (FinalExtension().empty())
     return *this;
@@ -403,6 +482,7 @@ FilePath FilePath::RemoveFinalExtension() const {
   return FilePath(path_.substr(0, dot));
 }
 
+// 在文件名后，扩展名前插入 |suffix| 字符串。如果 BaseName() == "." || ".." ，返回空。
 FilePath FilePath::InsertBeforeExtension(const StringType& suffix) const {
   if (suffix.empty())
     return FilePath(path_);
@@ -427,6 +507,7 @@ FilePath FilePath::InsertBeforeExtensionASCII(const StringPiece& suffix)
 #endif
 }
 
+// 在路径后添加扩展名。若 |extension| 为空，返回当前路径。
 FilePath FilePath::AddExtension(const StringType& extension) const {
   if (IsEmptyOrSpecialCase(BaseName().value()))
     return FilePath();
@@ -444,12 +525,16 @@ FilePath FilePath::AddExtension(const StringType& extension) const {
   return FilePath(str);
 }
 
+// 用 |extension| 替换 |file_name| 的扩展名。如果 |file_name| 没有扩展名，则添加
+// 扩展名。如果 |extension| 为空，则移除 |file_name| 中扩展名。
 FilePath FilePath::ReplaceExtension(const StringType& extension) const {
   if (IsEmptyOrSpecialCase(BaseName().value()))
     return FilePath();
 
   FilePath no_ext = RemoveExtension();
   // If the new extension is "" or ".", then just remove the current extension.
+  // 
+  // 如果 |extension| 为空，则移除 |path_| 中扩展名
   if (extension.empty() || extension == StringType(1, kExtensionSeparator))
     return no_ext;
 
@@ -460,6 +545,7 @@ FilePath FilePath::ReplaceExtension(const StringType& extension) const {
   return FilePath(str);
 }
 
+// 匹配扩展名
 bool FilePath::MatchesExtension(const StringType& extension) const {
   DCHECK(extension.empty() || extension[0] == kExtensionSeparator);
 
@@ -471,10 +557,12 @@ bool FilePath::MatchesExtension(const StringType& extension) const {
   return FilePath::CompareEqualIgnoreCase(extension, current_extension);
 }
 
+// 通过将分隔符和提供的路径组件添加到本对象的路径来返回 FilePath 。
 FilePath FilePath::Append(const StringType& component) const {
   const StringType* appended = &component;
   StringType without_nuls;
 
+  // 去除结尾 '\0' 空字符
   StringType::size_type nul_pos = component.find(kStringTerminator);
   if (nul_pos != StringType::npos) {
     without_nuls = component.substr(0, nul_pos);
@@ -494,6 +582,7 @@ FilePath FilePath::Append(const StringType& component) const {
     return FilePath(*appended);
   }
 
+  // 删除尾分隔符
   FilePath new_path(path_);
   new_path.StripTrailingSeparatorsInternal();
 
@@ -1245,6 +1334,7 @@ int FilePath::CompareIgnoreCase(const StringType& string1,
 #endif  // OS versions of CompareIgnoreCase()
 
 
+// 删除尾分隔符
 void FilePath::StripTrailingSeparatorsInternal() {
   // If there is no drive letter, start will be 1, which will prevent stripping
   // the leading separator if there is only one separator.  If there is a drive

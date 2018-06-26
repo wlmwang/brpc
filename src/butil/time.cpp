@@ -70,6 +70,7 @@ int clock_gettime(clockid_t id, timespec* time) {
 
 namespace butil {
 
+// 获取系统单调时间：系统启动以后流逝的时间
 int64_t monotonic_time_ns() {
     // MONOTONIC_RAW is slower than MONOTONIC in linux 2.6.32, trying to
     // use the RAW version does not make sense anymore.
@@ -82,6 +83,8 @@ int64_t monotonic_time_ns() {
 namespace detail {
 
 // read_cpu_frequency() is modified from source code of glibc.
+// 
+// 读取 CPU 频率
 int64_t read_cpu_frequency(bool* invariant_tsc) {
     /* We read the information from the /proc filesystem.  It contains at
        least one line like

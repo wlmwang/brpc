@@ -13,10 +13,14 @@
 namespace butil {
 
 // Encodes the input string in base64.
+// 
+// base64 编码
 BUTIL_EXPORT void Base64Encode(const StringPiece& input, std::string* output);
 
 // Decodes the base64 input string.  Returns true if successful and false
 // otherwise.  The output string is only modified if successful.
+// 
+// base64 解码。只有在解码成功的时候才修改 output
 BUTIL_EXPORT bool Base64Decode(const StringPiece& input, std::string* output);
 
 }  // namespace butil

@@ -15,6 +15,12 @@
 // This should be obvious, but note that an butil::AutoReset<> instance should
 // have a shorter lifetime than its scoped_variable, to prevent invalid memory
 // writes when the butil::AutoReset<> object is destroyed.
+// 
+// butil::AutoReset<> 主要用在：在特定域中将变量设为新值，离开特定域后，将值设回原值的场景。
+// butil::AutoReset<> 对象在构造时设为新值，析构时将变量重置为原始值。
+//
+// 请注意，一个 butil::AutoReset<> 实例的生命周期应短于其 scoped_variable ，以防止在 
+// butil::AutoReset<> 对象被销毁后的仍进行无效内存的写入。
 
 namespace butil {
 
@@ -30,8 +36,8 @@ class AutoReset {
   ~AutoReset() { *scoped_variable_ = original_value_; }
 
  private:
-  T* scoped_variable_;
-  T original_value_;
+  T* scoped_variable_;	// 特定域中设置值
+  T original_value_;	// 原始值
 
   DISALLOW_COPY_AND_ASSIGN(AutoReset);
 };

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// 原子序列类型。即，如果要在栈（或堆）上分配原子序列号 (atomic sequence number) ，
+// 请使用 AtomicSequenceNumber 类。
+
 #ifndef BUTIL_ATOMIC_SEQUENCE_NUM_H_
 #define BUTIL_ATOMIC_SEQUENCE_NUM_H_
 
@@ -19,6 +22,12 @@ class AtomicSequenceNumber;
 // data section (.data in ELF). If you want to allocate an atomic sequence
 // number on the stack (or heap), please use the AtomicSequenceNumber class
 // declared below.
+// 
+// 必须在全局域（或非函数域）中使用的静态 POD（ Static POD）的 AtomicSequenceNumber 。
+// 此实现不会生成任何静态初始化程序。 
+// 注意，它没有任何构造函数，这意味着它的字段不被初始化，除非它被存储在全局数据部分（ELF 中
+// 的 .data）中（初始化为零值）。
+// 如果要在栈（或堆）上分配序列号 (atomic sequence number)，请使用 AtomicSequenceNumber
 class StaticAtomicSequenceNumber {
  public:
   inline int GetNext() {
@@ -29,6 +38,7 @@ class StaticAtomicSequenceNumber {
  private:
   friend class AtomicSequenceNumber;
 
+  // 重置为 0
   inline void Reset() {
     butil::subtle::Release_Store(&seq_, 0);
   }
@@ -40,6 +50,9 @@ class StaticAtomicSequenceNumber {
 // always initialized as opposed to StaticAtomicSequenceNumber declared above).
 // Please use StaticAtomicSequenceNumber if you want to declare an atomic
 // sequence number in the global scope.
+// 
+// 可以安全地存储和使用 AtomicSequenceNumber（即，它的字段总是被初始化，而不是像上面依赖静
+// 态储存区的初始化机制而声明的 StaticAtomicSequenceNumber ）。注：该类不是 POD 类型。
 class AtomicSequenceNumber {
  public:
   AtomicSequenceNumber() {

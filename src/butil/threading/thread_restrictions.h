@@ -108,17 +108,32 @@ class ThreadTestHelper;
 // callers.  For example, if your function GoDoSomeBlockingDiskCall()
 // only calls other functions in Chrome and not fopen(), you should go
 // add the AssertIOAllowed checks in the helper functions.
+// 
+// 某些行为在某些线程上不被允许。 ThreadRestrictions 有助于检测这些规则。例如：
+// * 不要阻塞IO（使线程非常快）
+// * 不要访问 Singleton/LazyInstance （可能导致关闭崩溃）
+// 
+// 关于保护如何工作：
+// 1) 如果一个线程不应该进行 IO 调用，请将其标记为： 
+//    butil::ThreadRestrictions::SetIOAllowed(false); 默认情况下，线程允许进
+//    行 IO 调用。在 Chrome 浏览器代码中，应将 IO 调用代理到文件线程。
+// 2) 如果一个函数调用会写磁盘，请检查当前线程是否被允许：
+//    butil::ThreadRestrictions::AssertIOAllowed();
 
 class BUTIL_EXPORT ThreadRestrictions {
  public:
   // Constructing a ScopedAllowIO temporarily allows IO for the current
   // thread.  Doing this is almost certainly always incorrect.
+  // 
+  // 临时构建 ScopedAllowIO ，允许当前线程使用 IO 。这样做几乎总是不正确的。
   class BUTIL_EXPORT ScopedAllowIO {
    public:
     ScopedAllowIO() { previous_value_ = SetIOAllowed(true); }
     ~ScopedAllowIO() { SetIOAllowed(previous_value_); }
    private:
     // Whether IO is allowed when the ScopedAllowIO was constructed.
+    // 
+    // ScopedAllowIO 构建时 SetIOAllowed（是否允许 IO）先前值
     bool previous_value_;
 
     DISALLOW_COPY_AND_ASSIGN(ScopedAllowIO);
@@ -126,6 +141,8 @@ class BUTIL_EXPORT ThreadRestrictions {
 
   // Constructing a ScopedAllowSingleton temporarily allows accessing for the
   // current thread.  Doing this is almost always incorrect.
+  // 
+  // 临时构建 ScopedAllowSingleton ，允许访问当前线程。这样做几乎总是不正确的。
   class BUTIL_EXPORT ScopedAllowSingleton {
    public:
     ScopedAllowSingleton() { previous_value_ = SetSingletonAllowed(true); }
@@ -133,6 +150,8 @@ class BUTIL_EXPORT ThreadRestrictions {
    private:
     // Whether singleton use is allowed when the ScopedAllowSingleton was
     // constructed.
+    // 
+    // ScopedAllowSingleton 构建时（是否允许使用单例） SetSingletonAllowed 先前值
     bool previous_value_;
 
     DISALLOW_COPY_AND_ASSIGN(ScopedAllowSingleton);
@@ -142,26 +161,39 @@ class BUTIL_EXPORT ThreadRestrictions {
   // Set whether the current thread to make IO calls.
   // Threads start out in the *allowed* state.
   // Returns the previous value.
+  // 
+  // 设置当前线程是否允许进行 IO 调用。 线程从 *allowed* 状态开始。返回以前的值。
   static bool SetIOAllowed(bool allowed);
 
   // Check whether the current thread is allowed to make IO calls,
   // and DCHECK if not.  See the block comment above the class for
   // a discussion of where to add these checks.
+  // 
+  // 检查当前线程是否允许进行 IO 调用，否则 DCHECK 检查。查看上方的块注释，了解添加这些
+  // 检查的位置。
   static void AssertIOAllowed();
 
   // Set whether the current thread can use singletons.  Returns the previous
   // value.
+  // 
+  // 设置当前线程是否可以使用单例。返回以前的值。
   static bool SetSingletonAllowed(bool allowed);
 
   // Check whether the current thread is allowed to use singletons (Singleton /
   // LazyInstance).  DCHECKs if not.
+  // 
+  // 检查当前线程是否被允许使用单例 (Singleton/LazyInstance) 。 否则 DCHECK 检查。
   static void AssertSingletonAllowed();
 
   // Disable waiting on the current thread. Threads start out in the *allowed*
   // state. Returns the previous value.
+  // 
+  // 当前线程禁用等待。线程从 *allowed* 状态开始。返回以前的值。
   static void DisallowWaiting();
 
   // Check whether the current thread is allowed to wait, and DCHECK if not.
+  // 
+  // 检查当前线程是否允许等待，否则 DCHECK 检查。
   static void AssertWaitAllowed();
 #else
   // Inline the empty definitions of these functions so that they can be
@@ -236,6 +268,9 @@ public:
   // thread.  Doing this is almost always incorrect, which is why we limit who
   // can use this through friend. If you find yourself needing to use this, find
   // another way. Talk to jam or brettw.
+  // 
+  // 临时构建 ScopedAllowWait ，允许当前线程等待。这样做几乎总是不正确的。这就是为什么我们
+  // 限制谁可以通过友元使用它。如果你发现自己需要使用这个，找到另一种方式。
   class BUTIL_EXPORT ScopedAllowWait {
    public:
     ScopedAllowWait() { previous_value_ = SetWaitAllowed(true); }
@@ -243,6 +278,8 @@ public:
    private:
     // Whether singleton use is allowed when the ScopedAllowWait was
     // constructed.
+    // 
+    // ScopedAllowWait 构造时是否允许使用单例
     bool previous_value_;
 
     DISALLOW_COPY_AND_ASSIGN(ScopedAllowWait);

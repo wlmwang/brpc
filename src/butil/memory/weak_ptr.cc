@@ -24,6 +24,7 @@ WeakReference::Flag::~Flag() {
 WeakReference::WeakReference() {
 }
 
+// 此时 flag_ 引用计数器 +1 ，即 flag_::ref_count_>=1
 WeakReference::WeakReference(const Flag* flag) : flag_(flag) {
 }
 
@@ -41,9 +42,12 @@ WeakReferenceOwner::~WeakReferenceOwner() {
 
 WeakReference WeakReferenceOwner::GetRef() const {
   // If we hold the last reference to the Flag then create a new one.
+  // 
+  // 如果我们持有对 WeakReference::Flag 的最后一个引用，则创建一个 WeakReference
   if (!HasRefs())
     flag_ = new WeakReference::Flag();
 
+  // 此时 flag_ 引用计数器 +1 ，即 flag_::ref_count_>=1
   return WeakReference(flag_.get());
 }
 

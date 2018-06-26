@@ -25,21 +25,28 @@
 typedef HANDLE FileHandle;
 typedef HANDLE MutexHandle;
 // Windows warns on using write().  It prefers _write().
+// 
+// Windows警告使用 write() 更喜欢 _write()
 #define write(fd, buf, count) _write(fd, buf, static_cast<unsigned int>(count))
 // Windows doesn't define STDERR_FILENO.  Define it here.
+// 
+// Windows 没有定义 STDERR_FILENO
 #define STDERR_FILENO 2
+
 #elif defined(OS_MACOSX)
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <mach-o/dyld.h>
+
 #elif defined(OS_POSIX)
 #if defined(OS_NACL) || defined(OS_LINUX)
 #include <sys/time.h> // timespec doesn't seem to be in <time.h>
 #else
 #include <sys/syscall.h>
-#endif
+#endif  // defined(OS_NACL) || defined(OS_LINUX)
 #include <time.h>
-#endif
+#endif  // defined(OS_POSIX)
+
 #if defined(OS_POSIX)
 #include <errno.h>
 #include <pthread.h>
@@ -47,6 +54,7 @@ typedef HANDLE MutexHandle;
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+// 最大路径长度
 #define MAX_PATH PATH_MAX
 typedef FILE* FileHandle;
 typedef pthread_mutex_t* MutexHandle;
@@ -127,6 +135,7 @@ DEFINE_string(vmodule, "", "per-module verbose level."
 
 DEFINE_bool(log_process_id, false, "Log process id");
 
+// 将显示任何等于或高于此级别的错误日志。低于这个级别的任何信息都会被默默地忽略
 DEFINE_int32(minloglevel, 0, "Any log at or above this level will be "
              "displayed. Anything below this level will be silently ignored. "
              "0=INFO 1=NOTICE 2=WARNING 3=ERROR 4=FATAL");
@@ -142,6 +151,8 @@ namespace {
 LoggingDestination logging_destination = LOG_DEFAULT;
 
 // For BLOG_ERROR and above, always print to stderr.
+// 
+// 对于 BLOG_ERROR 及以上级别的错误，请始终打印至 stderr
 const int kAlwaysPrintErrorLevel = BLOG_ERROR;
 
 // Which log file to use? This is initialized by InitLogging or
@@ -184,6 +195,7 @@ void DeleteFilePath(const PathString& log_name) {
 #endif
 }
 
+// 获取进程名称（不包含路径）
 #if defined(OS_LINUX)
 static PathString GetProcessName() {
     butil::fd_guard fd(open("/proc/self/cmdline", O_RDONLY));
@@ -198,10 +210,14 @@ static PathString GetProcessName() {
     buf[len] = '\0';
     // Not string(buf, len) because we needs to buf to be truncated at first \0.
     // Under gdb, the first part of cmdline may include path.
+    // 
+    // 不是 string(buf, len) ，因为我们需要 buf 在第一个 \0 处被截断。
+    // 在 gdb 下， cmdline 的第一部分可能包含路径
     return butil::FilePath(std::string(buf)).BaseName().value();
 }
 #endif
 
+// 获取默认日志名称（不包含路径）
 PathString GetDefaultLogFile() {
 #if defined(OS_WIN)
     // On Windows we use the same path as the exe.
@@ -376,6 +392,7 @@ bool InitializeLogFileHandle() {
     return true;
 }
 
+// 关闭文件（日志句柄指针）
 void CloseFile(FileHandle log) {
 #if defined(OS_WIN)
     CloseHandle(log);
@@ -432,10 +449,12 @@ bool BaseInitLoggingImpl(const LoggingSettings& settings) {
     return InitializeLogFileHandle();
 }
 
+// 设置最低日志错误级别
 void SetMinLogLevel(int level) {
     FLAGS_minloglevel = std::min(BLOG_FATAL, level);
 }
 
+// 获取设置的最低日志错误级别
 int GetMinLogLevel() {
     return FLAGS_minloglevel;
 }
@@ -448,9 +467,11 @@ void SetLogAssertHandler(LogAssertHandler handler) {
     log_assert_handler = handler;
 }
 
+// 日志错误级别对应名字字符串
 const char* const log_severity_names[LOG_NUM_SEVERITIES] = {
     "INFO", "NOTICE", "WARNING", "ERROR", "FATAL" };
 
+// 输出日志错误级别对应名字字符串的第一个字符
 inline void log_severity_name(std::ostream& os, int severity) {
     if (severity < 0) {
         // Add extra space to separate from following datetime.
@@ -462,6 +483,7 @@ inline void log_severity_name(std::ostream& os, int severity) {
     }
 }
 
+// 输出日志前缀：错误级别 年月日 时:分:秒.微妙 pid_t tid hostname file:line] 
 void print_log_prefix(std::ostream& os,
                       int severity, const char* file, int line) {
     log_severity_name(os, severity);
@@ -497,6 +519,7 @@ void print_log_prefix(std::ostream& os,
        << butil::PlatformThread::CurrentId() << std::setfill('0');
     if (FLAGS_log_hostname) {
         butil::StringPiece hostname(butil::my_hostname());
+        // 主机名去除 .baidu.com 后缀
         if (hostname.ends_with(".baidu.com")) { // make it shorter
             hostname.remove_suffix(10);
         }
@@ -507,6 +530,8 @@ void print_log_prefix(std::ostream& os,
 }
 
 // A log message handler that gets notified of every log message we process.
+// 
+// 日志消息处理程序，获取我们处理的每条日志消息的通知
 class DoublyBufferedLogSink : public butil::DoublyBufferedData<LogSink*> {
 public:
     DoublyBufferedLogSink() {}
@@ -516,6 +541,7 @@ friend struct DefaultSingletonTraits<DoublyBufferedLogSink>;
     DISALLOW_COPY_AND_ASSIGN(DoublyBufferedLogSink);
 };
 
+// 获取 DoublyBufferedLogSink 单例对象
 DoublyBufferedLogSink* DoublyBufferedLogSink::GetInstance() {
     return Singleton<DoublyBufferedLogSink,
                      LeakySingletonTraits<DoublyBufferedLogSink> >::get();
@@ -629,6 +655,7 @@ int CharArrayStreamBuf::overflow(int ch) {
     if (ch == std::streambuf::traits_type::eof()) {
         return ch;
     }
+    // 分配原来 _size 长度的 1.5 倍的缓冲
     size_t new_size = std::max(_size * 3 / 2, (size_t)64);
     char* new_data = (char*)malloc(new_size);
     if (BAIDU_UNLIKELY(new_data == NULL)) {
@@ -694,6 +721,7 @@ static void create_stream_key_or_die() {
     }
 }
 static LogStream** get_tls_stream_array() {
+    // 初始化一次 create_stream_key_once ，销毁为函数 create_stream_key_or_die
     pthread_once(&create_stream_key_once, create_stream_key_or_die);
     if (is_bthread_linked()) {
         return (LogStream**)bthread_getspecific(stream_bkey);
@@ -702,7 +730,9 @@ static LogStream** get_tls_stream_array() {
     }
 }
 
+// 线程安全的创建 LOG_NUM_SEVERITIES+1 个本地线程 LogStream 对象
 static LogStream** get_or_new_tls_stream_array() {
+    // 只初始化一次，其余直接返回
     LogStream** a = get_tls_stream_array();
     if (a == NULL) {
         a = new LogStream*[LOG_NUM_SEVERITIES + 1];
@@ -723,6 +753,7 @@ inline LogStream* CreateLogStream(const PathChar* file, int line,
         DCHECK_LT(severity, LOG_NUM_SEVERITIES);
         slot = severity + 1;
     } // else vlog
+    // 获取指定级别的本地线程 LogStream 对象
     LogStream** stream_array = get_or_new_tls_stream_array();
     LogStream* stream = stream_array[slot];
     if (stream == NULL) {

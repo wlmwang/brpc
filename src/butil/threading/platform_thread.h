@@ -145,6 +145,9 @@ class BUTIL_EXPORT PlatformThread {
   static PlatformThreadHandle CurrentHandle();
 
   // Yield the current thread so another thread can be scheduled.
+  // 
+  // 使另一个级别等于或高于当前线程的线程先运行。如果没有符合条件的线程，那么函数将会
+  // 立刻返回然后继续执行当前线程的程序。
   static void YieldCurrentThread();
 
   // Sleeps for the specified duration.

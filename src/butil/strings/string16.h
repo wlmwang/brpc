@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// 2 字节字符串类型 string16 。它能够兼容处理 UTF-16 编码的数据
+
 #ifndef BUTIL_STRINGS_STRING16_H_
 #define BUTIL_STRINGS_STRING16_H_
 
@@ -25,6 +27,23 @@
 // Here, we define string16, which is similar to std::wstring but replaces all
 // libc functions with custom, 2-byte-char compatible routines. It is capable
 // of carrying UTF-16-encoded data.
+// 
+// WHAT:
+// 即使 wchar_t 没有被实现为 2 字节类型，我们也提供 2 字节版本的 std::basic_string
+// 可以使用 string16 来使用它。我们也定义了 char16 类型。 string16 便是基于它。
+// 
+// WHY:
+// 在 Windows 上，wchar_t 为 2 字节，可方便地处理 UTF-16/UCS-2 数据。现有的大量代码
+// 对编码为 UTF-16 的字符串进行操作。
+// 
+// 在许多其他平台上，默认情况下 sizeof(wchar_t) 为 4 个字节。
+// 我们可以通过使用 GCC 标志 -fshort-wchar 使其为 2 个字节。但是 std::wstring 在运行
+// 时会有问题，因为它调用了一些来自本机系统 C 函数库（如 wcslen ），它是使用 4 字节的 wchar_t
+// 使用 4 字节 wchar_t 字符串来携带 UTF-16 数据是浪费的，在 UTF-32 被编码为 wchar_t 的
+// 那些系统上完全不正确。
+// 
+// 这里我们定义 string16 ，它类似于 std::wstring ，但是它是用自定义的 2 字节 char 兼容
+// 的函数来替换所有的 libc 库函数。它能够兼容处理 UTF-16 编码的数据
 
 #include <stdio.h>
 #include <string>
@@ -32,6 +51,7 @@
 #include "butil/base_export.h"
 #include "butil/basictypes.h"
 
+// 2 字节长度的 wchar_t
 #if defined(WCHAR_T_IS_UTF16)
 
 namespace butil {
@@ -42,6 +62,7 @@ typedef std::char_traits<wchar_t> string16_char_traits;
 
 }  // namespace butil
 
+// 4 字节长度的 wchar_t
 #elif defined(WCHAR_T_IS_UTF32)
 
 namespace butil {
@@ -51,6 +72,8 @@ typedef uint16_t char16;
 // char16 versions of the functions required by string16_char_traits; these
 // are based on the wide character functions of similar names ("w" or "wcs"
 // instead of "c16").
+// 
+// 自定义的 2 字节 char 兼容 C 的函数
 BUTIL_EXPORT int c16memcmp(const char16* s1, const char16* s2, size_t n);
 BUTIL_EXPORT size_t c16len(const char16* s);
 BUTIL_EXPORT const char16* c16memchr(const char16* s, char16 c, size_t n);
@@ -64,10 +87,23 @@ struct string16_char_traits {
 
   // int_type needs to be able to hold each possible value of char_type, and in
   // addition, the distinct value of eof().
+  // 
+  // int_type 需要能够保存 char_type 的每个可能的值，以及 eof() 的不同值
   COMPILE_ASSERT(sizeof(int_type) > sizeof(char_type), unexpected_type_width);
 
+  // \file #include <ios>
+  // 典型为 typedef long long streamoff;
+  // 表示足以表示操作系统所支持的最大可能文件大小的有符号整数类型
   typedef std::streamoff off_type;
+  // \file #include <cwchar>
+  // struct mbstate_t;
+  // 表示任何能出现于实现定义的受支持多字节编码规则集合的转换状态
   typedef mbstate_t state_type;
+  // \file #include <ios>
+  // template<class State> class fpos;
+  // 类模板 std::fpos 的特化。标识流或文件中的绝对位置
+  // 每个 fpos 类型对象保有流中的字节位置（典型地为 std::streamoff 类型作为私有成员）和
+  // 当前迁移状态， State 类型值（典型地为 std::mbstate_t ）
   typedef std::fpos<state_type> pos_type;
 
   static void assign(char_type& c1, const char_type& c2) {
@@ -127,8 +163,10 @@ struct string16_char_traits {
   }
 };
 
+// string16 字符串类型
 typedef std::basic_string<char16, butil::string16_char_traits> string16;
 
+// string16 << 运算符重载。将 UTF-16 转换成 UTF-8 输出
 BUTIL_EXPORT extern std::ostream& operator<<(std::ostream& out,
                                             const string16& str);
 
@@ -175,6 +213,8 @@ BUTIL_EXPORT extern void PrintTo(const string16& str, std::ostream* out);
 // boundaries, such as in statically-linked executables.
 //
 // TODO(mark): File this bug with Apple and update this note with a bug number.
+
+// std::basic_string 外部模版显式实例化声明
 
 extern template
 class BUTIL_EXPORT std::basic_string<butil::char16, butil::string16_char_traits>;

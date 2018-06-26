@@ -12,6 +12,8 @@
 
 // gcc7 reports that the first arg to vsnprintfT in StringAppendVT is NULL,
 // which I can't figure out why, turn off the warning right now.
+// 
+// 关闭警告：gcc7 当在 StringAppendVT 函数中 vsnprintfT 的第一个参数是 NULL 时将警告
 #if defined(__GNUC__) && __GNUC__ >= 7
 #pragma GCC diagnostic warning "-Wformat-truncation=0"
 #endif
@@ -26,6 +28,11 @@ namespace {
 // large enough to accommodate the formatted string without truncation, they
 // return the number of characters that would be in the fully-formatted string
 // (vsnprintf, and vswprintf on Windows), or -1 (vswprintf on POSIX platforms).
+// 
+// 重载 vsnprintf 和 vswprintf 的包装器。 buf_size 参数是缓冲区的大小。这些返回格式化
+// 字符串中不包含 NUL 终止符的字符数。如果缓冲区不足以容纳格式化的字符串而没有截断，它们将
+// 返回完全格式化字符串（ Windows 上的 vsnprintf 和 vswprintf ）或 -1（ POSIX 平台上
+// 的 vswprintf ）中的字符数量。
 inline int vsnprintfT(char* buffer,
                       size_t buf_size,
                       const char* format,

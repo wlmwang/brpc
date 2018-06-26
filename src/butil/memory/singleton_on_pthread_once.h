@@ -23,9 +23,10 @@
 
 namespace butil {
 
+// 一个线程安全且永不删除的全局的类型 T 的单例实现
 template <typename T> class GetLeakySingleton {
 public:
-    static butil::subtle::AtomicWord g_leaky_singleton_untyped;
+    static butil::subtle::AtomicWord g_leaky_singleton_untyped; // 原子单例指针
     static pthread_once_t g_create_leaky_singleton_once;
     static void create_leaky_singleton();
 };
@@ -48,6 +49,10 @@ void GetLeakySingleton<T>::create_leaky_singleton() {
 // this function.
 // This function can be called safely before main() w/o initialization issues of
 // global variables.
+// 
+// 为了得到一个永不删除的全局的类型 T 的单例，只需调用 get_leaky_singleton<T>() 。大多数守护
+// 线程或者需要永远存在的对象都可以通过这个函数来创建。
+// 此函数可以在 main() w/o 初始化全局变量安全地调用。
 template <typename T>
 inline T* get_leaky_singleton() {
     const butil::subtle::AtomicWord value = butil::subtle::Acquire_Load(
@@ -55,6 +60,7 @@ inline T* get_leaky_singleton() {
     if (value) {
         return reinterpret_cast<T*>(value);
     }
+    // 只创建一次实例
     pthread_once(&GetLeakySingleton<T>::g_create_leaky_singleton_once,
                  GetLeakySingleton<T>::create_leaky_singleton);
     return reinterpret_cast<T*>(
@@ -63,6 +69,8 @@ inline T* get_leaky_singleton() {
 
 // True(non-NULL) if the singleton is created.
 // The returned object (if not NULL) can be used directly.
+// 
+// 全局类型 T 单实例是否已创建。若不为空，返回的实例可直接使用。
 template <typename T>
 inline T* has_leaky_singleton() {
     return reinterpret_cast<T*>(

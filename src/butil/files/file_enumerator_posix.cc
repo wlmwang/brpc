@@ -63,6 +63,8 @@ FileEnumerator::FileEnumerator(const FilePath& root_path,
   // The Windows version of this code appends the pattern to the root_path,
   // potentially only matching against items in the top-most directory.
   // Do the same here.
+  // 
+  // 此代码的 Windows 版本将该模式附加到 root_path ，可能仅匹配最顶级目录中的项目。
   if (pattern.empty())
     pattern_ = FilePath::StringType();
   pending_paths_.push(root_path);
@@ -75,18 +77,23 @@ FilePath FileEnumerator::Next() {
   ++current_directory_entry_;
 
   // While we've exhausted the entries in the current directory, do the next
+  // 
+  // 当前目录路径下所有文件项被迭代结束后，递归搜索子目录。（广度优先搜索的路径）
   while (current_directory_entry_ >= directory_entries_.size()) {
     if (pending_paths_.empty())
       return FilePath();
 
+    // 弹出根目录
     root_path_ = pending_paths_.top();
-    root_path_ = root_path_.StripTrailingSeparators();
+    root_path_ = root_path_.StripTrailingSeparators();  // 去除结尾 /
     pending_paths_.pop();
 
+    // 读取目录下所有文件项
     std::vector<FileInfo> entries;
     if (!ReadDirectory(&entries, root_path_, file_type_ & SHOW_SYM_LINKS))
       continue;
 
+    // 重置循环标志，以便 Next() 记录迭代位置
     directory_entries_.clear();
     current_directory_entry_ = 0;
     for (std::vector<FileInfo>::const_iterator i = entries.begin();
@@ -95,13 +102,16 @@ FilePath FileEnumerator::Next() {
       if (ShouldSkip(full_path))
         continue;
 
+      // 路径模式匹配
       if (pattern_.size() &&
           fnmatch(pattern_.c_str(), full_path.value().c_str(), FNM_NOESCAPE))
         continue;
 
+      // 子目录加入递归搜索路径
       if (recursive_ && S_ISDIR(i->stat_.st_mode))
         pending_paths_.push(full_path);
 
+      // 当前目录路径下所有文件项数组
       if ((S_ISDIR(i->stat_.st_mode) && (file_type_ & DIRECTORIES)) ||
           (!S_ISDIR(i->stat_.st_mode) && (file_type_ & FILES)))
         directory_entries_.push_back(*i);
@@ -116,9 +126,11 @@ FileEnumerator::FileInfo FileEnumerator::GetInfo() const {
   return directory_entries_[current_directory_entry_];
 }
 
+// 将 |source| 目录下所有文件项读入 entries 的数组中。
 bool FileEnumerator::ReadDirectory(std::vector<FileInfo>* entries,
                                    const FilePath& source, bool show_links) {
   butil::ThreadRestrictions::AssertIOAllowed();
+  // 打开目录
   DIR* dir = opendir(source.value().c_str());
   if (!dir)
     return false;
@@ -133,6 +145,9 @@ bool FileEnumerator::ReadDirectory(std::vector<FileInfo>* entries,
   // readdir_r is marked as deprecated since glibc 2.24. 
   // Using readdir on _different_ DIR* object is already thread-safe in
   // most modern libc implementations.
+  // 
+  // 自 glibc 2.24 以来， readdir_r 被标记为弃用。在大多数现代 libc 实现中，对 
+  // _different_ DIR* 对象使用 readdir 已经是线程安全的。
 #if defined(__GLIBC__) &&  \
     (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 24))
   while ((dent = readdir(dir))) {
@@ -141,8 +156,10 @@ bool FileEnumerator::ReadDirectory(std::vector<FileInfo>* entries,
   while (readdir_r(dir, &dent_buf, &dent) == 0 && dent) {
 #endif
     FileInfo info;
+    // 文件的名称，不包括任何路径信息(basename)，最长 255 字符。
     info.filename_ = FilePath(dent->d_name);
 
+    // 返回文件全路径 full_name
     FilePath full_name = source.Append(dent->d_name);
     int ret;
     if (show_links)
@@ -152,6 +169,8 @@ bool FileEnumerator::ReadDirectory(std::vector<FileInfo>* entries,
     if (ret < 0) {
       // Print the stat() error message unless it was ENOENT and we're
       // following symlinks.
+      // 
+      // 打印 stat() 错误消息，除非它是 ENOENT ，并且显示符号链接
       if (!(errno == ENOENT && !show_links)) {
         DPLOG(ERROR) << "Couldn't stat "
                      << source.Append(dent->d_name).value();

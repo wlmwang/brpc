@@ -23,6 +23,21 @@
 // std::string. We do not define as large of a subset of the STL functions
 // from basic_string as in StringPiece, but this can be changed if these
 // functions (find, find_first_of, etc.) are found to be useful in this context.
+// 
+// 类似 string 的对象，不同的是：
+// 1. StringPieces 不负责管理(分配、释放)字符串的内存（没有所有权，也不能控制其生命周期）
+// 2. StringPieces 常用在一些用到字符串作为参数的 "函数/方法" 上
+// 
+// 可以使用 StringPiece 作为函数或方法参数。系统地使用 StringPiece 作为参数可以减少数据
+// 拷贝和 strlen() 的调用。 StringPiece 构造参数可以接收：
+// 1. C-style 字符串字面量参数
+// 2. "const char *"/"const char16 *" 参数
+// 3. string/string16 引用参数 
+// 4. StringPiece 参数（浅复制）
+// 5. StringPiece 引用参数
+// 
+// StringPieces 最好通过值传递，在一些特殊情况下也可以通过 const 引用传递（不建议）。这
+// 两个都具有相同的生命周期语义（都没有字符串所有权），但后者传递值会产生略小的代码。 
 //
 
 #ifndef BUTIL_STRINGS_STRING_PIECE_H_
@@ -54,6 +69,8 @@ typedef BasicStringPiece<string16> StringPiece16;
 // For those that share an implementation, the two versions will expand to a
 // template internal to the .cc file.
 namespace internal {
+
+// 每个函数都提供了两个类型的函数重载 StringPiece/StringPiece16
 
 BUTIL_EXPORT void CopyToString(const StringPiece& self, std::string* target);
 BUTIL_EXPORT void CopyToString(const StringPiece16& self, string16* target);
@@ -159,10 +176,16 @@ BUTIL_EXPORT StringPiece16 substr(const StringPiece16& self,
 //
 // This is templatized by string class type rather than character type, so
 // BasicStringPiece<std::string> or BasicStringPiece<butil::string16>.
+// 
+// 这是一个字符串类型而不是字符类型的模板（标准库字符模版 std::basic_string<char>）
+// BasicStringPiece<std::string> 或 BasicStringPiece<butil::string16>
 template <typename STRING_TYPE> class BasicStringPiece {
  public:
   // Standard STL container boilerplate.
+  // 
+  // 标准 STL 定义建议要求
   typedef size_t size_type;
+  // std::string 对应 char ，butil::string16 对应 char16
   typedef typename STRING_TYPE::value_type value_type;
   typedef const value_type* pointer;
   typedef const value_type& reference;
@@ -171,12 +194,17 @@ template <typename STRING_TYPE> class BasicStringPiece {
   typedef const value_type* const_iterator;
   typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
+  // 非法索引值
   static const size_type npos;
 
  public:
   // We provide non-explicit singleton constructors so users can pass
   // in a "const char*" or a "string" wherever a "StringPiece" is
   // expected (likewise for char16, string16, StringPiece16).
+  // 
+  // 提供 non-explicit 的构造函数。因此用户可以在需要 "StringPiece" 的地方传入
+  // "const char*"/"const char16*"/const string&/const string16& 以及其迭
+  // 代器，显示构造 StringPiece
   BasicStringPiece() : ptr_(NULL), length_(0) {}
   BasicStringPiece(const value_type* str)
       : ptr_(str),
@@ -194,6 +222,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   // returned buffer may or may not be null terminated.  Therefore it is
   // typically a mistake to pass data() to a routine that expects a NUL
   // terminated string.
+  // 
+  // data() 可能是 '\0' 结尾，也可能不是
   const value_type* data() const { return ptr_; }
   size_type size() const { return length_; }
   size_type length() const { return length_; }
@@ -214,6 +244,7 @@ template <typename STRING_TYPE> class BasicStringPiece {
 
   value_type operator[](size_type i) const { return ptr_[i]; }
 
+  // 移除指定长度字符
   void remove_prefix(size_type n) {
     ptr_ += n;
     length_ -= n;
@@ -224,6 +255,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // Remove heading and trailing spaces.
+  // 
+  // 移除前导、结尾空白
   void trim_spaces() {
     size_t nsp = 0;
     for (; nsp < size() && isspace(ptr_[nsp]); ++nsp) {}
@@ -233,7 +266,9 @@ template <typename STRING_TYPE> class BasicStringPiece {
     remove_suffix(nsp);
   }       
 
+  // BasicStringPiece<string>/BasicStringPiece<string16> 混合比较
   int compare(const BasicStringPiece<STRING_TYPE>& x) const {
+    // 先比较较短的字符
     int r = wordmemcmp(
         ptr_, x.ptr_, (length_ < x.length_ ? length_ : x.length_));
     if (r == 0) {
@@ -243,18 +278,26 @@ template <typename STRING_TYPE> class BasicStringPiece {
     return r;
   }
 
+  // 转换原始类型
   STRING_TYPE as_string() const {
     // std::string doesn't like to take a NULL pointer even with a 0 size.
+    // 
+    // std::string 不喜欢采用 NULL 指针，即使是 0 的大小
     return empty() ? STRING_TYPE() : STRING_TYPE(data(), size());
   }
 
   // Return the first/last character, UNDEFINED when StringPiece is empty.
+  // 
+  // 返回首|尾字符。当 BasicStringPiece 为空，行为未定义
   char front() const { return *ptr_; }
   char back() const { return *(ptr_ + length_ - 1); }
   // Return the first/last character, 0 when StringPiece is empty.
+  // 
+  // 安全返回首|尾字符，。BasicStringPiece 为空时，返回 '\0'
   char front_or_0() const { return length_ ? *ptr_ : '\0'; }
   char back_or_0() const { return length_ ? *(ptr_ + length_ - 1) : '\0'; }
 
+  // 迭代器
   const_iterator begin() const { return ptr_; }
   const_iterator end() const { return ptr_ + length_; }
   const_reverse_iterator rbegin() const {
@@ -264,6 +307,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
     return const_reverse_iterator(ptr_);
   }
 
+  // BasicStringPiece 并不持有字符串的所有权，故 max_size()|capacity() 只是
+  // 简单的等于自身 length()
   size_type max_size() const { return length_; }
   size_type capacity() const { return length_; }
 
@@ -275,6 +320,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
 
   // Sets the value of the given string target type to be the current string.
   // This saves a temporary over doing |a = b.as_string()|
+  // 
+  // 将给定的字符串目标类型的值设置为当前字符串。可以节省临时覆盖的时间 |a=b.as_string()|
   void CopyToString(STRING_TYPE* target) const {
     internal::CopyToString(*this, target);
   }
@@ -288,12 +335,16 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // Does "this" start with "x"
+  // 
+  // 字符串前缀匹配
   bool starts_with(const BasicStringPiece& x) const {
     return ((this->length_ >= x.length_) &&
             (wordmemcmp(this->ptr_, x.ptr_, x.length_) == 0));
   }
 
   // Does "this" end with "x"
+  // 
+  // 字符串结尾匹配
   bool ends_with(const BasicStringPiece& x) const {
     return ((this->length_ >= x.length_) &&
             (wordmemcmp(this->ptr_ + (this->length_-x.length_),
@@ -301,6 +352,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // find: Search for a character or substring at a given offset.
+  // 
+  // 从指定偏移查找子字符串位置
   size_type find(const BasicStringPiece<STRING_TYPE>& s,
                  size_type pos = 0) const {
     return internal::find(*this, s, pos);
@@ -310,6 +363,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // rfind: Reverse find.
+  // 
+  // find 的逆向查找版本
   size_type rfind(const BasicStringPiece& s,
                   size_type pos = BasicStringPiece::npos) const {
     return internal::rfind(*this, s, pos);
@@ -319,6 +374,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // find_first_of: Find the first occurence of one of a set of characters.
+  // 
+  // 查找一组字符中任意一个字符在字符串中第一个出现位置
   size_type find_first_of(const BasicStringPiece& s,
                           size_type pos = 0) const {
     return internal::find_first_of(*this, s, pos);
@@ -328,6 +385,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // find_first_not_of: Find the first occurence not of a set of characters.
+  // 
+  // 查找一组字符中任意一个字符不在字符串中第一个位置
   size_type find_first_not_of(const BasicStringPiece& s,
                               size_type pos = 0) const {
     return internal::find_first_not_of(*this, s, pos);
@@ -337,6 +396,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // find_last_of: Find the last occurence of one of a set of characters.
+  // 
+  // 查找一组字符中任意一个字符在字符串中最后一个出现位置
   size_type find_last_of(const BasicStringPiece& s,
                          size_type pos = BasicStringPiece::npos) const {
     return internal::find_last_of(*this, s, pos);
@@ -347,6 +408,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // find_last_not_of: Find the last occurence not of a set of characters.
+  // 
+  // 查找一组字符中任意一个字符不在字符串中最一个位置
   size_type find_last_not_of(const BasicStringPiece& s,
                              size_type pos = BasicStringPiece::npos) const {
     return internal::find_last_not_of(*this, s, pos);
@@ -357,6 +420,8 @@ template <typename STRING_TYPE> class BasicStringPiece {
   }
 
   // substr.
+  // 
+  // 截取子字符串（同样也不管理字符串内存生命周期）
   BasicStringPiece substr(size_type pos,
                           size_type n = BasicStringPiece::npos) const {
     return internal::substr(*this, pos, n);
@@ -373,6 +438,9 @@ BasicStringPiece<STRING_TYPE>::npos =
     typename BasicStringPiece<STRING_TYPE>::size_type(-1);
 
 // MSVC doesn't like complex extern templates and DLLs.
+// 
+// MSVC 不喜欢复杂的外部模板和 DLL
+// 实例化模版
 #if !defined(COMPILER_MSVC)
 extern template class BUTIL_EXPORT BasicStringPiece<std::string>;
 extern template class BUTIL_EXPORT BasicStringPiece<string16>;
@@ -456,6 +524,11 @@ inline char back_char_or_0(const std::string& s) { return s.empty() ? '\0' : s[s
 // This hash function is copied from butil/containers/hash_tables.h. We don't
 // use the ones already defined for string and string16 directly because it
 // would require the string constructors to be called, which we don't want.
+// 
+// 提供了适当的散列函数，所以 StringPiece/StringPiece16 可以用作散列集和映射中的键
+// 
+// 这个散列函数是从 butil/containers/hash_tables.h 复制的。
+// 我们不直接使用已经定义的 string 和 string16 ，因为我们不想调用字符串构造函数
 #define HASH_STRING_PIECE(StringPieceType, string_piece)                \
   std::size_t result = 0;                                               \
   for (StringPieceType::const_iterator i = string_piece.begin();        \

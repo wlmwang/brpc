@@ -56,11 +56,14 @@ File::File(RValue other)
 
 File::~File() {
   // Go through the AssertIOAllowed logic.
+  // 
+  // 已通过了 AssertIOAllowed 逻辑
   Close();
 }
 
 File& File::operator=(RValue other) {
   if (this != other.object) {
+    // 关闭当前文件
     Close();
     SetPlatformFile(other.object->TakePlatformFile());
     error_details_ = other.object->error_details();
@@ -71,7 +74,9 @@ File& File::operator=(RValue other) {
 }
 
 #if !defined(OS_NACL)
+// 创建或打开给定文件 |name|
 void File::Initialize(const FilePath& name, uint32_t flags) {
+  // 不能有引用父目录路径 ('..') ，否则返回 "access denied"
   if (name.ReferencesParent()) {
     error_details_ = FILE_ERROR_ACCESS_DENIED;
     return;
@@ -80,6 +85,7 @@ void File::Initialize(const FilePath& name, uint32_t flags) {
 }
 #endif
 
+// 将错误值转换为可读的形式。用于日志记录。
 std::string File::ErrorToString(Error error) {
   switch (error) {
     case FILE_OK:

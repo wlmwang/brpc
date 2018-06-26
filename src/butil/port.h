@@ -8,6 +8,8 @@
 #include <stdarg.h>
 #include "butil/build_config.h"
 
+// 长整型 (unsigned) long long 字面值后缀 token 拼接
+
 // DEPRECATED: Use ...LL and ...ULL suffixes.
 // TODO(viettrungluu): Delete these. These are only here until |GG_(U)INT64_C|
 // are deleted (some other header files (re)define |GG_(U)INT64_C|, so our
@@ -32,6 +34,8 @@
 // for this purpose.  MSVC does not provide va_copy, so define an
 // implementation here.  It is not guaranteed that assignment is a copy, so the
 // StringUtil.VariableArgsFunc unit test tests this capability.
+// 
+// 拷贝一份可变参数函数的参数
 #if defined(COMPILER_GCC)
 #define GG_VA_COPY(a, b) (va_copy(a, b))
 #elif defined(COMPILER_MSVC)
@@ -39,6 +43,8 @@
 #endif
 
 // Define an OS-neutral wrapper for shared library entry points
+// 
+// 为共享库入口点函数调用定义函数调用协议的包装器
 #if defined(OS_WIN)
 #define API_CALL __stdcall
 #else

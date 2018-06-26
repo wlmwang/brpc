@@ -102,6 +102,10 @@ uint64_t _xgetbv(uint32_t xcr) {
 // "Processor". "model name" is used in Linux 3.8 and later (3.7 and later for
 // arm64) and is shown once per CPU. "Processor" is used in earler versions and
 // is shown only once at the top of /proc/cpuinfo regardless of the number CPUs.
+// 
+// 返回在 "model name" 或 "Processor" 下的 /proc/cpuinfo 中找到的字符串。
+// "model name" 用于 Linux 3.8 及更高版本（ 3.7 及更高版本，用于 arm64 ），每个 CPU 显示
+// 一次。"Processor" 用于更早版本，无论 CPU 的数量如何，只在 /proc/cpuinfo 的顶部显示一次。
 std::string ParseCpuInfo() {
   const char kModelNamePrefix[] = "model name\t: ";
   const char kProcessorPrefix[] = "Processor\t: ";
@@ -126,6 +130,7 @@ std::string ParseCpuInfo() {
   return cpu_brand;
 }
 
+// ParseCpuInfo() 包装成 butil::LazyInstance 延迟加载单例对象。
 class LazyCpuInfoValue {
  public:
   LazyCpuInfoValue() : value_(ParseCpuInfo()) {}
@@ -139,6 +144,7 @@ class LazyCpuInfoValue {
 butil::LazyInstance<LazyCpuInfoValue> g_lazy_cpu_brand =
     LAZY_INSTANCE_INITIALIZER;
 
+// 延迟加载单例 g_lazy_cpu_brand 对象。
 const std::string& CpuBrandInfo() {
   return g_lazy_cpu_brand.Get().value();
 }
@@ -148,6 +154,7 @@ const std::string& CpuBrandInfo() {
 
 }  // anonymous namespace
 
+// 处理器的信息初始化
 void CPU::Initialize() {
 #if defined(ARCH_CPU_X86_FAMILY)
   int cpu_info[4] = {-1};

@@ -19,6 +19,10 @@ namespace butil {
 // do the best it can and put the result in the output buffer. The versions that
 // return strings ignore this error and just return the best conversion
 // possible.
+// 
+// UTF-8/16/32 字符串转换，它们可能很慢，因此避免不必要的转换。
+// 低级版本返回一个布尔值，指示转换是否为 100% 有效。
+// 它会尽力转换，并将结果放在输出缓冲区中。返回字符串的版本会忽略此错误，只需返回最佳转换。
 BUTIL_EXPORT bool WideToUTF8(const wchar_t* src, size_t src_len,
                             std::string* output);
 BUTIL_EXPORT std::string WideToUTF8(const std::wstring& wide);

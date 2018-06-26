@@ -9,6 +9,7 @@ namespace butil {
 
 namespace subtle {
 
+// 是否只有一个引用计数器
 bool RefCountedThreadSafeBase::HasOneRef() const {
   return AtomicRefCountIsOne(
       &const_cast<RefCountedThreadSafeBase*>(this)->ref_count_);
@@ -27,6 +28,7 @@ RefCountedThreadSafeBase::~RefCountedThreadSafeBase() {
 #endif
 }
 
+// 自增引用计数器
 void RefCountedThreadSafeBase::AddRef() const {
 #ifndef NDEBUG
   DCHECK(!in_dtor_);
@@ -34,6 +36,7 @@ void RefCountedThreadSafeBase::AddRef() const {
   AtomicRefCountInc(&ref_count_);
 }
 
+// 递减引用计数器
 bool RefCountedThreadSafeBase::Release() const {
 #ifndef NDEBUG
   DCHECK(!in_dtor_);

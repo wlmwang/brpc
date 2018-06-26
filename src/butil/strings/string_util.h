@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 //
 // This file defines utility functions for working with strings.
+// 
+// strings 字符串实用函数工具集
 
 #ifndef BUTIL_STRINGS_STRING_UTIL_H_
 #define BUTIL_STRINGS_STRING_UTIL_H_
@@ -25,23 +27,37 @@ namespace butil {
 // cross-platform are provided as "butil::strncasecmp", and their prototypes
 // are listed below.  These functions are then implemented as inline calls
 // to the platform-specific equivalents in the platform-specific headers.
+// 
+// 如 strncasecmp/snprintf 非跨平台的 c 标准库函数被重写为 butil::strncasecmp ，
+// 然后将这些函数作为内联调用实现到特定于平台的头文件中作为特定于平台的对等函数。
 
 // Compares the two strings s1 and s2 without regard to case using
 // the current locale; returns 0 if they are equal, 1 if s1 > s2, and -1 if
 // s2 > s1 according to a lexicographic comparison.
+// 
+// 使用当前语言环境下，根据词典比较两个字符串 s1 和 s2 ，不考虑大小写。
+// 如果 s1==s2 则返回 0，如果 s1>s2 则返回 1，如果 s2>s1 则返回 -1
 int strcasecmp(const char* s1, const char* s2);
 
 // Compares up to count characters of s1 and s2 without regard to case using
 // the current locale; returns 0 if they are equal, 1 if s1 > s2, and -1 if
 // s2 > s1 according to a lexicographic comparison.
+// 
+// 使用当前语言环境下，根据词典比较两个字符串前 count 个字符的 s1 和 s2 ，不考虑大小写。
+// 如果 s1==s2 则返回 0，如果 s1>s2 则返回 1，如果 s2>s1 则返回 -1
 int strncasecmp(const char* s1, const char* s2, size_t count);
 
 // Same as strncmp but for char16 strings.
+// 
+// strncmp 的 char16 版本
 int strncmp16(const char16* s1, const char16* s2, size_t count);
 
 // Wrapper for vsnprintf that always null-terminates and always returns the
 // number of characters that would be in an untruncated formatted
 // string, even when truncation occurs.
+// 
+// 用于 vsnprintf 的包装器，始终以空终止。并且始终返回即使在发生截断时也会处于未截断格式
+// 化字符串中的字符数。
 int vsnprintf(char* buffer, size_t size, const char* format, va_list arguments)
     PRINTF_FORMAT(3, 0);
 
@@ -49,6 +65,12 @@ int vsnprintf(char* buffer, size_t size, const char* format, va_list arguments)
 
 // We separate the declaration from the implementation of this inline
 // function just so the PRINTF_FORMAT works.
+// 
+// 将声明与内联函数的实现分离开来，以使 PRINTF_FORMAT 可以工作。
+// 
+// @tips
+// C++ inline 函数是一种 "用于实现的关键字" ，而不是一种 "用于声明的关键字"。也就是说只有 
+// inline 与函数的定义体放在一起才能生效。
 inline int snprintf(char* buffer, size_t size, const char* format, ...)
     PRINTF_FORMAT(3, 4);
 inline int snprintf(char* buffer, size_t size, const char* format, ...) {
@@ -65,6 +87,12 @@ inline int snprintf(char* buffer, size_t size, const char* format, ...) {
 // long as |dst_size| is not 0.  Returns the length of |src| in characters.
 // If the return value is >= dst_size, then the output was truncated.
 // NOTE: All sizes are in number of characters, NOT in bytes.
+// 
+// BSD-style 的安全和一致的字符串复制函数。
+// 复制 |src| 到 |dst|。其中 |dst_size| 是 |dst| 的总分配大小。最多能复制 |dst_size|-1 
+// 个字符，并始终为让 |dst| 以 NULL 结尾，只要 |dst_size| 不为 0。返回 |src| 的字符长度。
+// 如果返回值是 >=dst_size, 则输出被截断。
+// 注：所有大小都是字符数量，而不是以字节数（ wcslcpy 是宽字符版本的）。
 BUTIL_EXPORT size_t strlcpy(char* dst, const char* src, size_t dst_size);
 BUTIL_EXPORT size_t wcslcpy(wchar_t* dst, const wchar_t* src, size_t dst_size);
 
@@ -89,22 +117,45 @@ BUTIL_EXPORT size_t wcslcpy(wchar_t* dst, const wchar_t* src, size_t dst_size);
 // working with wprintf.
 //
 // This function is intended to be called from butil::vswprintf.
+// 
+// 扫描一个 wprintf 格式的字符串以确定它是否可以跨多种系统移植。
+// 此函数仅检查格式字符串使用的转换说明符是否受支持，并且在各种系统上具有相同的含义。
+// 它不检查格式字符串中可能发生的其他错误。
+//
+//  不可移植的 wprintf 说明符：
+//  - 's' 和 'c' 没有 'l' 长度修饰符。因为除了 Windows 可以让 %s 和 %c 修饰符对 char 数据
+//    进行等同 wchar_t 一样操作，其他系统都使用 %ls 和 %lc 作为 wchar_t 数据
+//  - 'S' 和 'C' ，它们在 Windows 以外的所有系统上对 wchar_t 数据进行操作，将它们视为 char 
+//    数据。其他系统使用 %ls 和 %lc 处理 wchar_t 数据
+//  - 'F' ，这是没有确定的 Windows wprintf 文档
+//  - 'D', 'O', 和 'U' ，它们已被弃用，并且在所有系统上都不可用。 改用 %ld ，%lo 和 %lu
+//
+// 请注意，使用 wprintf 时，没有用于 char 数据的可移植转换说明符。
+// 
+// butil::vswprintf 内部调用该函数
 BUTIL_EXPORT bool IsWprintfFormatPortable(const wchar_t* format);
 
 // ASCII-specific tolower.  The standard library's tolower is locale sensitive,
 // so we don't want to use it here.
+// 
+// ASCII 转换大小写。标准库的 tolower|toupper 是 locale 环境敏感的。
 template <class Char> inline Char ToLowerASCII(Char c) {
   return (c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c;
 }
 
 // ASCII-specific toupper.  The standard library's toupper is locale sensitive,
 // so we don't want to use it here.
+// 
+// ASCII 转换大小写。标准库的 tolower|toupper 是 locale 环境敏感的。
 template <class Char> inline Char ToUpperASCII(Char c) {
   return (c >= 'a' && c <= 'z') ? (c + ('A' - 'a')) : c;
 }
 
 // Function objects to aid in comparing/searching strings.
+// 
+// "比较/搜索" 字符串的函数对象
 
+// locale 环境敏感的，忽略大小写的字符比较仿函数类
 template<typename Char> struct CaseInsensitiveCompare {
  public:
   bool operator()(Char x, Char y) const {
@@ -114,6 +165,7 @@ template<typename Char> struct CaseInsensitiveCompare {
   }
 };
 
+// locale 环境无关的，忽略大小写的字符比较仿函数类
 template<typename Char> struct CaseInsensitiveCompareASCII {
  public:
   bool operator()(Char x, Char y) const {
@@ -134,21 +186,38 @@ template<typename Char> struct CaseInsensitiveCompareASCII {
 // accessor), and don't have an empty string to use (e.g. in an error case).
 // These should not be used as initializers, function arguments, or return
 // values for functions which return by value or outparam.
+// 
+// 线程安全函数返回全局唯一空字符串的引用。
+// 
+// 构建一个新的空字符串对象（只需要几条指令将长度设置为 0）比获取由这些函数返回的空字符串
+// 单例（这需要线程安全的单例访问）更快。
+// 
+// 因此，请勿将其作为默认构建空字符的一般用途替代品。只有一种情况应该使用这些函数：需要通
+// 过引用返回字符串的函数（例如，作为类成员访问器），并且没有要使用的空字符串（例如，在错
+// 误情况下）。这些不应该用作初始值设定项，函数参数或函数的返回值，这些值通过值或超参数返回
 BUTIL_EXPORT const std::string& EmptyString();
 BUTIL_EXPORT const string16& EmptyString16();
 
 // Contains the set of characters representing whitespace in the corresponding
 // encoding. Null-terminated.
+// 
+// 包含表示相应编码中的空白的字符集合。Null-terminated
 BUTIL_EXPORT extern const wchar_t kWhitespaceWide[];
 BUTIL_EXPORT extern const char16 kWhitespaceUTF16[];
 BUTIL_EXPORT extern const char kWhitespaceASCII[];
 
 // Null-terminated string representing the UTF-8 byte order mark.
+// 
+// 表示 UTF-8 字节顺序掩码的字符串。 Null-terminated
 BUTIL_EXPORT extern const char kUtf8ByteOrderMark[];
 
 // Removes characters in |remove_chars| from anywhere in |input|.  Returns true
 // if any characters were removed.  |remove_chars| must be null-terminated.
 // NOTE: Safe to use the same variable for both |input| and |output|.
+// 
+// 删除 |input| 字符串中的 |remove_chars| 字符串。如果删除了任何字符，则返回 true 
+// |remove_chars| 必须是 null-terminated
+// 注意：安全地使用相同的变量的 |input| 和 |output| 参数。
 BUTIL_EXPORT bool RemoveChars(const string16& input,
                              const butil::StringPiece16& remove_chars,
                              string16* output);

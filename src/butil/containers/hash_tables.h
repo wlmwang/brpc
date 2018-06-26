@@ -18,6 +18,10 @@
 // because identity hashes are not desirable for all types that might show up
 // in containers as pointers.
 
+// 注意：这个类的显式非目标是为指针提供一个通用的散列函数。如果你想散列一个指向特定类的指针，
+// 请在其他地方（例如，在它的头文件中）定义模板特化，并将其指定为指向该类的指针。这是因为对
+// 于在容器中显示为指针的所有可能的类型，无法描述自身类型哈希。
+
 #ifndef BUTIL_CONTAINERS_HASH_TABLES_H_
 #define BUTIL_CONTAINERS_HASH_TABLES_H_
 
@@ -70,6 +74,9 @@ namespace BUTIL_HASH_NAMESPACE {
 // but not for |long long|.  This hash function will truncate if |size_t| is
 // narrower than |long long|.  This is probably good enough for what we will
 // use it for.
+// 
+// GNU C++ 库为许多整数类型提供特征散列函数，但不适用于 |long long| 
+// 这个散列函数将会截断 if |size_t| < |long long| 。 这可能足够我们将使用它
 
 #define DEFINE_TRIVIAL_HASH(integral_type) \
     template<> \
@@ -90,6 +97,10 @@ DEFINE_TRIVIAL_HASH(unsigned long long);
 // GNU C++ library, in <tr1/functional>.  It is duplicated here because GCC
 // versions prior to 4.3.2 are unable to compile <tr1/functional> when RTTI
 // is disabled, as it is in our build.
+// 
+// 实现字符串散列函数，以便各种风格的字符串可以用作 STL 映射和集合中的键。 
+// 散列算法来自 GNU C++ 库，位于 <tr1/functional> 中。 因为 4.3.2 之前的 GCC 版本
+// 在 RTTI 禁用时无法编译 <tr1/functional> ，因此在这里重复提供。
 
 #define DEFINE_STRING_HASH(string_type) \
     template<> \
@@ -128,6 +139,9 @@ using BUTIL_HASH_NAMESPACE::hash_set;
 //   h32(x32, y32) = (h64(x32, y32) * rand_odd64 + rand16 * 2^16) % 2^64 / 2^32
 //
 // Contact danakj@chromium.org for any questions.
+// 
+// 对至多 32 位整数值对进行哈希处理。当 size_t 是 32 位时，我们使用乘加散列，将 64 位散
+// 列码变成 32 位。
 inline std::size_t HashInts32(uint32_t value1, uint32_t value2) {
   uint64_t value1_64 = value1;
   uint64_t hash64 = (value1_64 << 32) | value2;
@@ -149,6 +163,9 @@ inline std::size_t HashInts32(uint32_t value1, uint32_t value2) {
 // breaking the two 64-bit inputs into 4 32-bit values:
 // http://opendatastructures.org/versions/edition-0.1d/ods-java/node33.html#SECTION00832000000000000000
 // Then we reduce our result to 32 bits if required, similar to above.
+// 
+// 实现最多 64 位整数值对的散列。我们使用复合整数散列方法来产生 64 位散列码，
+// 将两个 64 位输入分解为 4 个 32 位值
 inline std::size_t HashInts64(uint64_t value1, uint64_t value2) {
   uint32_t short_random1 = 842304669U;
   uint32_t short_random2 = 619063811U;
@@ -236,9 +253,13 @@ namespace BUTIL_HASH_NAMESPACE {
 
 // Implement methods for hashing a pair of integers, so they can be used as
 // keys in STL containers.
+// 
+// 实现整数对散列的方法，让它们可以用作 STL 容器中的键
 
 // NOTE(gejun): Specialize ptr as well which is supposed to work with 
 // containers by default
+// 
+// 特化 ptr 以及默认情况下与容器一起工作
 
 #if defined(COMPILER_MSVC)
 
