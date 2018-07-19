@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// MD5 代表消息摘要算法。通常用于文件校验和，代码复杂而缓慢，但碰撞很少。
+
 #ifndef BUTIL_MD5_H_
 #define BUTIL_MD5_H_
 
@@ -32,18 +34,29 @@ namespace butil {
 //   MD5Final(&digest, &ctx);
 //
 // You can call MD5DigestToBase16() to generate a string of the digest.
+// 
+// 
+// MD5 代表消息摘要算法。通常用于文件校验和。代码复杂而缓慢，但碰撞很少。
+// 
+// 这些功能执行 MD5 操作。最简单的调用是 MD5Sum() 来生成给定数据的 MD5 总和。
 
 // The output of an MD5 operation.
+// 
+// MD5 为 32 位 16 进制字符组成的摘要。
 struct MD5Digest {
   unsigned char a[16];
 };
 
 // Used for storing intermediate data during an MD5 computation. Callers
 // should not access the data.
+// 
+// 用于在 MD5 计算期间存储中间数据。调用者不应访问数据。
 typedef char MD5Context[88];
 
 // Computes the MD5 sum of the given data buffer with the given length.
 // The given 'digest' structure will be filled with the result data.
+// 
+// 计算给定长度 |data| 数据缓冲区的 MD5 总和，结果写入 |digest| 中。
 BUTIL_EXPORT void MD5Sum(const void* data, size_t length, MD5Digest* digest);
 
 // Initializes the given MD5 context structure for subsequent calls to

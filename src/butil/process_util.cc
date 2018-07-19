@@ -29,6 +29,7 @@
 
 namespace butil {
 
+// 读取该程序的命令行。
 ssize_t ReadCommandLine(char* buf, size_t len, bool with_args) {
 #if defined(OS_LINUX)
     butil::fd_guard fd(open("/proc/self/cmdline", O_RDONLY));
@@ -58,10 +59,12 @@ ssize_t ReadCommandLine(char* buf, size_t len, bool with_args) {
 #endif
 
     if (with_args) {
+        // 包含参数
         if ((size_t)nr == len) {
             LOG(ERROR) << "buf is not big enough";
             return -1;
         }
+        // '\0' 结尾符换成 '\n' 换行
         for (ssize_t i = 0; i < nr; ++i) {
             if (buf[i] == '\0') {
                 buf[i] = '\n';
@@ -69,8 +72,11 @@ ssize_t ReadCommandLine(char* buf, size_t len, bool with_args) {
         }
         return nr;
     } else {
+        // 不包含参数
         for (ssize_t i = 0; i < nr; ++i) {
             // The command in macos is separated with space and ended with '\n'
+            // 
+            // MACOSX 中的命令用空格分隔，以 '\n' 结尾。
             if (buf[i] == '\0' || buf[i] == '\n' || buf[i] == ' ') {
                 return i;
             }

@@ -86,6 +86,10 @@ LocationSnapshot::~LocationSnapshot() {
 }
 
 //------------------------------------------------------------------------------
+//
+// @tips
+// __builtin_return_address 函数的作用是返回所在函数被上一级函数调用后，退出地址（通常
+// 为 return 地址）。获取地址后，可通过 gdb 指令来找到对应的源代码。
 #if defined(COMPILER_MSVC)
 __declspec(noinline)
 #endif

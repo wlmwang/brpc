@@ -16,6 +16,8 @@
 // Date: Mon. Apr. 18 19:52:34 CST 2011
 
 // Iteratively split a string by one or multiple separators.
+// 
+// 通过一个或多个分隔符，迭代地分割一个字符串。
 
 #ifndef BUTIL_STRING_SPLITTER_H
 #define BUTIL_STRING_SPLITTER_H
@@ -46,19 +48,41 @@
 // respectively. Notice that "s.field()" may not end with '\0' because
 // we don't modify input. You can copy the field to a dedicated buffer
 // or apply a function supporting length.
+// 
+// 
+// 将由特殊字符分隔的编码的数据字符串，进行解码。但是像 `split_string' 等函数都必须
+// 修改输入字符串，这是不好的。如果我们从头开始解析字符串，代码将被填充一些指针操作，这
+// 也会让代码很难懂。
+// 
+// 这个函数最好应该是：
+// - 扫描字符串一次：只是有效地做简单的事情。
+// - 不要修改输入字符串：不改变输入，它可能带来隐藏的错误，并发问题和非 const 参数问题。
+// - 在没有额外缓冲区/数组的情况下就地分割字符串。
+//
+// Usage:
+//     const char* the_string_to_split = ...;
+//     for (StringSplitter s(the_string_to_split, '\t'); s; ++s) {
+//         printf("%*s\n", s.length(), s.field());
+//     }
 
 namespace butil {
 
+// 控制当字符串分隔迭代遇到连续分隔符时，采取的动作（默认跳过 SKIP_EMPTY_FIELD ）。
 enum EmptyFieldAction {
     SKIP_EMPTY_FIELD,
     ALLOW_EMPTY_FIELD
 };
 
 // Split a string with one character
+// 
+// 根据一个字符分隔字符串。
 class StringSplitter {
 public:
     // Split `input' with `separator'. If `action' is SKIP_EMPTY_FIELD, zero-
     // length() field() will be skipped.
+    // 
+    // 用 |separator| 分隔 |input| 。如果 |action| 是 SKIP_EMPTY_FIELD ，则跳过
+    // 空字段。
     inline StringSplitter(const char* input, char separator,
                           EmptyFieldAction action = SKIP_EMPTY_FIELD);
     inline StringSplitter(const char* str_begin, const char* str_end,
@@ -66,20 +90,31 @@ public:
                           EmptyFieldAction = SKIP_EMPTY_FIELD);
 
     // Move splitter forward.
+    // 
+    // 前向迭代
     inline StringSplitter& operator++();
+    // 后缀自增
     inline StringSplitter operator++(int);
 
     // True iff field() is valid.
+    // 
+    // 解引用当前迭代字段 field()
     inline operator const void*() const;
 
     // Beginning address and length of the field. *(field() + length()) may
     // not be '\0' because we don't modify `input'.
+    // 
+    // 起始地址和字段长度。 *(field() + length()) 可能不是 '\0' 结尾，因为我们不修改 
+    // |input| 。
     inline const char* field() const;
     inline size_t length() const;
 
     // Cast field to specific type, and write the value into `pv'.
     // Returns 0 on success, -1 otherwise.
     // NOTE: If separator is a digit, casting functions always return -1.
+    // 
+    // 将字段强制转换为特定类型，并将值写入 |pv| 。 成功时返回 0 ，否则返回 -1 。
+    // 注意：如果 separator 是一个数字，则转换函数始终返回 -1 。
     inline int to_int8(int8_t *pv) const;
     inline int to_uint8(uint8_t *pv) const;
     inline int to_int(int *pv) const;
@@ -95,14 +130,19 @@ private:
     inline bool not_end(const char* p) const;
     inline void init();
     
-    const char* _head;
-    const char* _tail;
-    const char* _str_tail;
-    const char _sep;
+    const char* _head;  // 当前迭代字段开始地址
+    const char* _tail;  // 当前迭代字段结尾地址
+    const char* _str_tail;  // 源字符串结尾指针，为 c-style 时 ==NULL（无另需结尾标志）
+    const char _sep;    // 分隔符
     const EmptyFieldAction _empty_field_action;
 };
 
 // Split a string with one of the separators
+// 
+// 根据多个字符分隔的字符串。多个分隔字符有一种类似 "或" 的关系。
+// 
+// Use like:
+// StringMultiSplitter("jjj;xxx,kkk", ",;");
 class StringMultiSplitter {
 public:
     // Split `input' with one character of `separators'. If `action' is
@@ -144,6 +184,7 @@ public:
     inline int to_double(double *pv) const;
 
 private:
+    // 字符 |c| 是否是分隔符
     inline bool is_sep(char c) const;
     inline bool not_end(const char* p) const;
     inline void init();

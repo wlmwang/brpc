@@ -10,6 +10,14 @@
 #include <string.h>                              // strlen
 #include "butil/string_printf.h"
 
+// @tips
+// \file #include <stdarg.h>
+// int vsnprintf(char *str, size_t size, const char *format, va_list ap);
+// 将可变参数格式化输出到一个 C 字符串中。即，用于向缓冲区 |str| 字符串中填入数据。执行成
+// 功，返回最终生成字符串的长度（不包含终止符）。如果结果字符串的长度超过了 n-1 个字符，则
+// 剩余的字符将被丢弃并且不被存储，而是被计算为函数返回的值。同时将原串的长度返回（不包含终
+// 止符）；执行失败，返回负值，并设置 errno 。
+
 namespace butil {
 
 // Copyright 2012 Facebook, Inc.
@@ -46,8 +54,11 @@ inline int string_printf_impl(std::string& output, const char* format,
         return -1;
     } else if (bytes_used < remaining) {
         // There was enough room, just shrink and return.
+        // 
+        // 有足够的空间，只是收缩返回。
         output.resize(write_point + bytes_used);
     } else {
+        // 重新申请足够大的内存空间。
         output.resize(write_point + bytes_used + 1);
         remaining = bytes_used + 1;
         bytes_used = vsnprintf(&output[write_point], remaining, format, args);

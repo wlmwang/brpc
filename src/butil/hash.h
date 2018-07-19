@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// hash 相关实用函数
+
 #ifndef BUTIL_HASH_H_
 #define BUTIL_HASH_H_
 

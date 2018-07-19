@@ -33,20 +33,25 @@
 namespace butil {
 namespace iobuf {
 
+// 散布读写函数原型 preadv()/pwritev()/user_preadv()/user_pwritev()
 typedef ssize_t (*iov_function)(int fd, const struct iovec *vector,
                                    int count, off_t offset);
-
 // Userpsace preadv
+// 
+// 用户空间 preadv() 实现。散布读，即，将文件中若干连续的数据块读入 |vector| 内
+// 存分散的缓冲区中。
 static ssize_t user_preadv(int fd, const struct iovec *vector, 
                            int count, off_t offset) {
     ssize_t total_read = 0;
     for (int i = 0; i < count; ++i) {
         const ssize_t rc = ::pread(fd, vector[i].iov_base, vector[i].iov_len, offset);
+        // pread 出错
         if (rc <= 0) {
             return total_read > 0 ? total_read : rc;
         }
         total_read += rc;
         offset += rc;
+        // @todo 可能读到文件末尾。
         if (rc < (ssize_t)vector[i].iov_len) {
             break;
         }
@@ -54,16 +59,20 @@ static ssize_t user_preadv(int fd, const struct iovec *vector,
     return total_read;
 }
 
+// 用户空间 pwritev() 实现。聚集写，即，收集 |vector| 内存中分散的若干缓冲区中的
+// 数据写至文件的连续区域中。
 static ssize_t user_pwritev(int fd, const struct iovec* vector,
                             int count, off_t offset) {
     ssize_t total_write = 0;
     for (int i = 0; i < count; ++i) {
         const ssize_t rc = ::pwrite(fd, vector[i].iov_base, vector[i].iov_len, offset);
+        // pwrite 出错
         if (rc <= 0) {
             return total_write > 0 ? total_write : rc;
         }
         total_write += rc;
         offset += rc;
+        // @todo 可能写入一半信号中断
         if (rc < (ssize_t)vector[i].iov_len) {
             break;
         }
@@ -82,6 +91,8 @@ static ssize_t user_pwritev(int fd, const struct iovec* vector,
 #endif // SYS_pwritev
 
 // SYS_preadv/SYS_pwritev is available since Linux 2.6.30
+// 
+// SYS_preadv/SYS_pwritev 自 Linux 2.6.30 起可用。
 static ssize_t sys_preadv(int fd, const struct iovec *vector, 
                           int count, off_t offset) {
     return syscall(SYS_preadv, fd, vector, count, offset);
@@ -92,6 +103,7 @@ static ssize_t sys_pwritev(int fd, const struct iovec *vector,
     return syscall(SYS_pwritev, fd, vector, count, offset);
 }
 
+// 获取 preadv() 函数地址。当系统不支持 sys_preadv() 返回 user_preadv
 inline iov_function get_preadv_func() {
     butil::fd_guard fd(open("/dev/zero", O_RDONLY));
     if (fd < 0) {
@@ -112,6 +124,7 @@ inline iov_function get_preadv_func() {
     return sys_preadv;
 }
 
+// 获取 pwritev() 函数地址。当系统不支持 sys_pwritev() 返回 user_pwritev
 inline iov_function get_pwritev_func() {
     butil::fd_guard fd(open("/dev/null", O_WRONLY));
     if (fd < 0) {
@@ -147,6 +160,8 @@ inline iov_function get_pwritev_func() {
 
 #endif  // ARCH_CPU_X86_64
 
+// 快速内存拷贝函数（通常情况下，以 4 字节为一个拷贝单位）。FAST_MEMCPY_MAXSIZE 以下的
+// 小内存拷贝使用该优化手段。
 static const size_t FAST_MEMCPY_MAXSIZE = 123;
 template <size_t size> struct FastMemcpyBlock {
     int data[size];
@@ -158,7 +173,9 @@ public:
     typedef FastMemcpyBlock<size / sizeof(int)> Block;
 
     static void* copy(void *dest, const void *src) {
+        // 数组包装在结构体中，能直接进行赋值拷贝
         *(Block*)dest = *(Block*)src;
+        // 拷贝尾部剩下的字节内存
         if ((size % sizeof(int)) > 2) {
             ((char*)dest)[size-3] = ((char*)src)[size-3];
         }
@@ -175,6 +192,8 @@ public:
 typedef void* (*CopyFn)(void*, const void*);
 static CopyFn g_fast_memcpy_fn[FAST_MEMCPY_MAXSIZE + 1];
 
+// 递归生成不同长度级别的快速内存拷贝函数。主要用来控制 FAST_MEMCPY_MAXSIZE 以下的小内存
+// 拷贝才使用该优化手段。
 template <size_t size>
 struct InitFastMemcpy : public InitFastMemcpy<size-1> {
     InitFastMemcpy() {
@@ -192,9 +211,12 @@ public:
 inline void* cp(void *__restrict dest, const void *__restrict src, size_t n) {
 #if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
     // memcpy in gcc 4.8 seems to be faster.
+    // 
+    // gcc 4.8 的 memcpy() 已经很快了
     return memcpy(dest, src, n);
 #else
     if (n <= FAST_MEMCPY_MAXSIZE) {
+        // FAST_MEMCPY_MAXSIZE 以下的小内存拷贝使用 FastMemcpy 优化手段。
         static InitFastMemcpy<FAST_MEMCPY_MAXSIZE> _init_cp_dummy;
         return g_fast_memcpy_fn[n](dest, src);
     }
@@ -203,6 +225,8 @@ inline void* cp(void *__restrict dest, const void *__restrict src, size_t n) {
 }
 
 // Function pointers to allocate or deallocate memory for a IOBuf::Block
+// 
+// 用于为 IOBuf::Block 分配或释放内存的函数指针。
 void* (*blockmem_allocate)(size_t) = ::malloc;
 void  (*blockmem_deallocate)(void*) = ::free;
 
@@ -212,6 +236,7 @@ void reset_blockmem_allocate_and_deallocate() {
     blockmem_deallocate = ::free;
 }
 
+// 系统所有非连续内存块 |IOBuf::Block| 的个数、内存总字节
 butil::static_atomic<size_t> g_nblock = BUTIL_STATIC_ATOMIC_INIT(0);
 butil::static_atomic<size_t> g_blockmem = BUTIL_STATIC_ATOMIC_INIT(0);
 butil::static_atomic<size_t> g_newbigview = BUTIL_STATIC_ATOMIC_INIT(0);
@@ -230,12 +255,13 @@ size_t IOBuf::new_bigview_count() {
     return iobuf::g_newbigview.load(butil::memory_order_relaxed);
 }
 
+// 非连续内存块。 offsetof(Block, data) 典型大小为 16 字节。
 struct IOBuf::Block {
-    butil::atomic<int> nshared;
-    uint16_t size;
-    uint16_t cap;
-    Block* portal_next;
-    char data[0];
+    butil::atomic<int> nshared; // 共享计数器
+    uint16_t size;      // 实际写入的负载长度
+    uint16_t cap;       // 实际可负载得内存容量（可写入到 |data| 中的字节）
+    Block* portal_next; // 内存块链表
+    char data[0];       // 实际的"数据负载"
         
     explicit Block(size_t block_size)
         : nshared(1), size(0), cap(block_size - offsetof(Block, data))
@@ -245,11 +271,14 @@ struct IOBuf::Block {
         iobuf::g_blockmem.fetch_add(block_size, butil::memory_order_relaxed);
     }
 
+    // 增加引用计数器
     void inc_ref() {
         nshared.fetch_add(1, butil::memory_order_relaxed);
     }
         
     void dec_ref() {
+        // 原子地做 nshared-= 1，返回修改之前的值。递减到最后一个引用计数器时，释放本内
+        // 存块的内存。
         if (nshared.fetch_sub(1, butil::memory_order_release) == 1) {
             butil::atomic_thread_fence(butil::memory_order_acquire);
             iobuf::g_nblock.fetch_sub(1, butil::memory_order_relaxed);
@@ -271,16 +300,21 @@ struct IOBuf::Block {
 namespace iobuf {
 
 // for unit test
+// 
+// 某内存块被引用次数
 int block_shared_count(IOBuf::Block const* b) { return b->ref_count(); }
 
+// 下一个内存块地址
 IOBuf::Block* get_portal_next(IOBuf::Block const* b) {
     return b->portal_next;
 }
 
+// 内存块容量
 uint16_t block_cap(IOBuf::Block const *b) {
     return b->cap;
 }
 
+// 创建 |block_size| 字节大小的内存块（实际负载要减去 IOBuf::Block 本身的 meta 信息）
 inline IOBuf::Block* create_block(const size_t block_size) {
     void* mem = iobuf::blockmem_allocate(block_size);
     if (BAIDU_LIKELY(mem != NULL)) {
@@ -289,6 +323,7 @@ inline IOBuf::Block* create_block(const size_t block_size) {
     return NULL;
 }
 
+// 创建默认大小内存块
 inline IOBuf::Block* create_block() {
     return create_block(IOBuf::DEFAULT_BLOCK_SIZE);
 }
@@ -296,6 +331,9 @@ inline IOBuf::Block* create_block() {
 // === Share TLS blocks between appending operations ===
 // Max number of blocks in each TLS. This is a soft limit namely
 // release_tls_block_chain() may exceed this limit sometimes.
+// 
+// 每个 TLS 中的最大块数。这是软限制，即 release_tls_block_chain() 有时可能会超出此
+// 限制。
 const int MAX_BLOCKS_PER_THREAD = 8;
 
 // NOTE: not see differences in examples when CACHE_IOBUF_BLOCKREFS is turned on
@@ -306,12 +344,18 @@ const int MAX_BLOCKREFS_PER_THREAD = 8;
 
 struct TLSData {
     // Head of the TLS block chain.
+    // 
+    // TLS 内存块链的头。指向第一个有效内存块。
     IOBuf::Block* block_head;
     
     // Number of TLS blocks
+    // 
+    // TLS 内存块链个数
     int num_blocks;
     
     // True if the remote_tls_block_chain is registered to the thread.
+    // 
+    // 如果 remove_tls_block_chain 已注册到线程退出函数，则为 True 
     bool registered;
 
 #ifdef CACHE_IOBUF_BLOCKREFS
@@ -321,6 +365,7 @@ struct TLSData {
 #endif
 };
 
+// 全局 TLS 内存块链
 #ifdef CACHE_IOBUF_BLOCKREFS
 static __thread TLSData g_tls_data = { NULL, 0, false, 0, {} };
 #else
@@ -337,6 +382,8 @@ int get_tls_block_count() { return g_tls_data.num_blocks; }
 static butil::static_atomic<size_t> g_num_hit_tls_threshold = BUTIL_STATIC_ATOMIC_INIT(0);
 
 // Called in UT.
+// 
+// 释放 tls 内存块链表的所有节点。
 void remove_tls_block_chain() {
     TLSData& tls_data = g_tls_data;
     IOBuf::Block* b = tls_data.block_head;
@@ -345,6 +392,7 @@ void remove_tls_block_chain() {
     }
     tls_data.block_head = NULL;
     int n = 0;
+    // 循环释放所有内存块节点
     do {
         IOBuf::Block* const saved_next = b->portal_next;
         b->dec_ref();
@@ -357,6 +405,8 @@ void remove_tls_block_chain() {
 
 // Get a (non-full) block from TLS.
 // Notice that the block is not removed from TLS.
+// 
+// 从 TLS 获取 (non-full) 内存块。请注意，该块不会从 TLS 中删除。
 inline IOBuf::Block* share_tls_block() {
     TLSData& tls_data = g_tls_data;
     IOBuf::Block* const b = tls_data.block_head;
@@ -365,12 +415,15 @@ inline IOBuf::Block* share_tls_block() {
     }
     IOBuf::Block* new_block = NULL;
     if (b) {
+        // @todo
         new_block = b->portal_next;
         b->dec_ref();
         --tls_data.num_blocks;
     } else if (!tls_data.registered) {
         tls_data.registered = true;
         // Only register atexit at the first time
+        // 
+        // 注册线程退出函数，用来清理内存块链表。
         butil::thread_atexit(remove_tls_block_chain);
     }
     if (!new_block) {
@@ -379,11 +432,14 @@ inline IOBuf::Block* share_tls_block() {
             ++tls_data.num_blocks;
         }
     }
+    // 添加到表头
     tls_data.block_head = new_block;
     return new_block;
 }
 
 // Return one block to TLS.
+// 
+// 获取内存块表头
 inline void release_tls_block(IOBuf::Block *b) {
     if (!b) {
         return;
@@ -410,6 +466,7 @@ inline void release_tls_block(IOBuf::Block *b) {
 inline void release_tls_block_chain(IOBuf::Block* b) {
     TLSData& tls_data = g_tls_data;
     size_t n = 0;
+    // 释放所有内存块链表节点
     if (tls_data.num_blocks >= MAX_BLOCKS_PER_THREAD) {
         do {
             ++n;
@@ -441,6 +498,8 @@ inline void release_tls_block_chain(IOBuf::Block* b) {
 }
 
 // Get and remove one (non-full) block from TLS. If TLS is empty, create one.
+// 
+// 从 TLS 获取和删除一个 (non-full) 内存块。 如果 TLS 为空，则创建一个。
 inline IOBuf::Block* acquire_tls_block() {
     TLSData& tls_data = g_tls_data;
     IOBuf::Block* b = tls_data.block_head;
@@ -1568,8 +1627,11 @@ ssize_t IOPortal::pappend_from_file_descriptor(
     Block* prev_p = NULL;
     Block* p = _block;
     // Prepare at most MAX_APPEND_IOVEC blocks or space of blocks >= max_count
+    // 
+    // 准备最多 MAX_APPEND_IOVEC 块或块空间 blocks >= max_count
     do {
         if (p == NULL) {
+            // 获取或一个默认大小的内存块节点
             p = iobuf::acquire_tls_block();
             if (BAIDU_UNLIKELY(!p)) {
                 errno = ENOMEM;

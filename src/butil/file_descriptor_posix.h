@@ -50,8 +50,8 @@ struct FileDescriptor {
   // example an IPC system might interpret this flag as indicating that the
   // file descriptor it has been given should be closed after use.
   // 
-  // 如果为 true ，则该文件描述符在使用后应该关闭。例如， IPC 系统可能会将此标志解释为，表
-  // 明它已经给出的文件描述符应在使用后关闭。
+  // 如果为 true ，则该文件描述符在使用后应该关闭。例如， IPC 系统可能会将此标志解释为，
+  // 表明它已经给出的文件描述符应在使用后关闭。
   bool auto_close;
 };
 

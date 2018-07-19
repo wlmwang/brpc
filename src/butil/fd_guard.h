@@ -34,6 +34,8 @@ namespace butil {
 //        printf("Fail to do sth\n");
 //        return -1;   // *** closing fd1 automatically ***
 //    }
+//    
+// 文件描述符 fd 的 RAII 包装器。
 class fd_guard {
 public:
     fd_guard() : _fd(-1) {}
@@ -47,6 +49,8 @@ public:
     }
 
     // Close current fd and replace with another fd
+    // 
+    // 关闭当前 fd 并替换为新的 fd
     void reset(int fd) {
         if (_fd >= 0) {
             ::close(_fd);
@@ -56,16 +60,21 @@ public:
     }
 
     // Set internal fd to -1 and return the value before set.
+    // 
+    // 将内部 fd 设置为 -1 ，并返回该 fd 。即，释放 fd 所有权。
     int release() {
         const int prev_fd = _fd;
         _fd = -1;
         return prev_fd;
     }
     
+    // int 隐式类型转换
     operator int() const { return _fd; }
     
 private:
     // Copying this makes no sense.
+    // 
+    // 禁止拷贝/赋值
     fd_guard(const fd_guard&);
     void operator=(const fd_guard&);
     

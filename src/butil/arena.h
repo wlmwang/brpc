@@ -17,8 +17,8 @@
 
 // Do small memory allocations on continuous blocks.
 // 
-// 高效的在连续内存块上执行小内存分配的简单内存池。只分配内存，不负责释放内存（一般情
-// 况下，进程结束（或手动释放 Arena 对象）才会释放所有内存）
+// 高效的在连续内存块上执行小内存分配的简单内存池。只分配内存，不负责释放内存（进程结
+// 束或手动释放 Arena 对象，才会释放所有内存）。
 
 #ifndef BUTIL_ARENA_H
 #define BUTIL_ARENA_H
@@ -39,12 +39,11 @@ struct ArenaOptions {
 
 // Just a proof-of-concept, will be refactored in future CI.
 // 
-// 只分配内存，不负责释放内存（一般情况下，进程结束（或手动释放 Arena 对象）才会释放
-// 所有内存）
+// 只分配内存，不负责释放内存（进程结束或手动释放 Arena 对象，才会释放所有内存）
 class Arena {
 public:
     explicit Arena(const ArenaOptions& options = ArenaOptions());
-    // 释放所有内存
+    // 释放所有内存资源
     ~Arena();
     // swap 内存池
     void swap(Arena&);

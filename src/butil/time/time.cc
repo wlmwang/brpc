@@ -105,6 +105,7 @@ Time Time::Max() {
 Time Time::FromTimeT(time_t tt) {
   if (tt == 0)
     return Time();  // Preserve 0 so we can tell it doesn't exist.
+  // tt 是一个有效的时间，所以这个构造函数不会将 0 解释为空。
   if (tt == std::numeric_limits<time_t>::max())
     return Max();
   return Time((tt * kMicrosecondsPerSecond) + kTimeTToMicrosecondsOffset);
@@ -160,6 +161,8 @@ Time Time::FromTimeSpec(const timespec& ts) {
 Time Time::FromJsTime(double ms_since_epoch) {
   // The epoch is a valid time, so this constructor doesn't interpret
   // 0 as the null time.
+  // 
+  // 纪元是一个有效的时间，所以这个构造函数不会将 0 解释为空。
   if (ms_since_epoch == std::numeric_limits<double>::infinity())
     return Max();
   return Time(static_cast<int64_t>(ms_since_epoch * kMicrosecondsPerMillisecond) +
@@ -232,6 +235,8 @@ bool Time::FromStringInternal(const char* time_string,
 
 // Local helper class to hold the conversion from Time to TickTime at the
 // time of the Unix epoch.
+// 
+// 用于保存 Unix 纪元时从 Time 到 TickTime 转换的助手类。
 class UnixEpochSingleton {
  public:
   UnixEpochSingleton()

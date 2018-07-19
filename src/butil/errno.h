@@ -16,6 +16,8 @@
 // Date: Fri Sep 10 13:34:25 CST 2010
 
 // Add customized errno.
+// 
+// 可定制添加错误码及错误描述
 
 #ifndef BUTIL_BAIDU_ERRNO_H
 #define BUTIL_BAIDU_ERRNO_H
@@ -61,20 +63,44 @@
 // 
 //     "Fail to define EMYERROR(30) which is already defined as `Read-only file system', abort"
 //
+// 
+// 可添加注册自定义错误号及其描述，不能重复注册同一个错误号（链接错误）。描述信息必须是
+// 全局、常量字符串（不能是局部的）。并且不能注册与系统重合的错误信息，否则程序在运行时，
+// 进入 main() 之前会报错（运行错误）。
+// 
+// 	*.h （全局）
+//     #define ESTOP -114                // C/C++
+//     static const int EMYERROR = 30;   // C/C++
+//     const int EMYERROR2 = -31;        // C++ only
+//
+// *.cpp （全局）
+//     BAIDU_REGISTER_ERRNO(ESTOP, "the thread is stopping");
+//     BAIDU_REGISTER_ERRNO(EMYERROR, "my error");
+//
+//	printf("description of ESTOP error code, %s\n", berror(ESTOP));
+//	printf("description of last system error code, %s\n", berror());
+//	
 
 namespace butil {
 // You should not call this function, use BAIDU_REGISTER_ERRNO instead.
+// 
+// 注册用户定制化的错误码及描述
 extern int DescribeCustomizedErrno(int, const char*, const char*);
 }
 
+// 控制不能重复注册 (BAIDU_REGISTER_ERRNO) 相同错误码。重复注册时：会生成两个相同的 
+// BaiduErrnoHelper<error_code> 偏特化版本，目标文件链接时会报错。
 template <int error_code> class BaiduErrnoHelper {};
 
+// 注册自定义错误码 errno 及对应描述字符串 description
 #define BAIDU_REGISTER_ERRNO(error_code, description)                   \
     const int ALLOW_UNUSED BAIDU_CONCAT(baidu_errno_dummy_, __LINE__) =              \
         ::butil::DescribeCustomizedErrno((error_code), #error_code, (description)); \
     template <> class BaiduErrnoHelper<(int)(error_code)> {};
 
+// 返回对应错误码的描述。
 const char* berror(int error_code);
+// 返回当前错误描述。
 const char* berror();
 
 #endif  //BUTIL_BAIDU_ERRNO_H

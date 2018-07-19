@@ -16,6 +16,8 @@
 // Author: Ge,Jun (gejun@baidu.com)
 // Date: Thu Nov 22 13:57:56 CST 2012
 
+// 非连续零拷贝的缓冲区
+
 #ifndef BUTIL_IOBUF_H
 #define BUTIL_IOBUF_H
 
@@ -29,9 +31,47 @@
 #include "butil/zero_copy_stream_as_streambuf.h"
 #include "butil/macros.h"
 
+
+// @tips
+// \file <sys/uio.h>
+// struct iovc {
+//      // 数据区的起始地址
+//      void *iov_base;
+//      
+//      // 数据区的大小
+//      size_t iov_len;
+// }
+// 
+// ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+// 说明：readv() 将 fd 指定文件中的数据按 iov[0],iov[1]...iov[iovcnt-1] 规
+// 定的顺序和长度，分散地读到它们指定的存储地址中。 readv() 的返回值是读入的总字
+// 节数。如果没有数据可读和遇到了文件尾，其返回值为 0 。
+// 
+// ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+// 说明：writev() 依次将 iov[0],iov[1]...iov[iovcnt-1] 指定的存储区中的数据
+// 写至 fd 指定的文件中。 writev() 的返回值是写出的数据总字节数。正常情况下它应
+// 当等于所有数据块长度之和。
+// 
+// 
+// @tips
+// \file <unistd.h>
+// ssize_t pread(int fd, void *buf, size_t nbyte, off_t offset);
+// ssize_t pwrite(int fd, const void *buf, size_t nbyte, off_t offset);
+// 
+// 与 read()/write() 的作用类似，但是 pread()/pwrite() 会在 offset 所指定的
+// 位置进行 I/O 操作，而且不会改变文件的当前偏移量。即，当调用 pread()/pwrite() 
+// 操作时，不会因为其他线程修改文件偏移量而受到影响。而且 pread()/pwrite() 系统
+// 调用的成本低于 lseek() 和 read()/write() 组合系统调用。
+
+
+
 // For IOBuf::appendv(const const_iovec*, size_t). The only difference of this
 // struct from iovec (defined in sys/uio.h) is that iov_base is `const void*'
 // which is assignable by const pointers w/o any error.
+// 
+// 对于 IOBuf::appendv(const const_iovec*, size_t); 中的 const_iovec 与 iovec 
+// (defined in <sys/uio.h>) 的唯一区别是 iov_base 是 const void*，可以通过 const 
+// 指针指定任 w/o 何错误。
 extern "C" {
 struct const_iovec {
     const void* iov_base;
@@ -49,6 +89,12 @@ namespace butil {
 // threads is safe as well.
 // IOBuf is [NOT thread-safe]. Modifying a same IOBuf from different threads
 // simultaneously is unsafe and likely to crash.
+// 
+// IOBuf 是一个非连续的缓冲区，可以进行剪切、合并拷贝区域。它也可以读取或刷新到从文件
+// 描述符中。
+// IOBuf 是[线程兼容]，即，在不同线程中同时使用不同的 IOBuf 是安全的，并且从不同线程
+// 读取静态 IOBuf 也是安全的。
+// IOBuf 是[非线程安全]。同时在不同线程的修改同一个 IOBuf 是不安全的，可能会崩溃。
 class IOBuf {
 friend class IOBufAsZeroCopyInputStream;
 friend class IOBufAsZeroCopyOutputStream;
@@ -63,21 +109,29 @@ public:
 
     // can't directly use `struct iovec' here because we also need to access the
     // reference counter(nshared) in Block*
+    // 
+    // 不能在这里直接使用 `struct iovec' ，因为我们还需要访问 Block* 中的引用计数器
+    // （nshared）
     struct BlockRef {
         // NOTICE: first bit of `offset' is shared with BigView::start
-        uint32_t offset;
-        uint32_t length;
+        // 
+        // 注意： `offset' 的第一位与 BigView::start 共享。
+        uint32_t offset;    // 块偏移
+        uint32_t length;    // 块长度
         Block* block;
     };
 
     // IOBuf is essentially a tiny queue of BlockRefs.
+    // 
+    // IOBuf 本质上是一个很小的 BlockRef 队列（只有 2 个元素。即，只有两个 Block 内存块）。
     struct SmallView {
         BlockRef refs[2];
     };
 
+    // 大于 2 个内存块
     struct BigView {
         int32_t magic;
-        uint32_t start;
+        uint32_t start; // 当前使用 BlockRef 的数组索引
         BlockRef* refs;
         uint32_t nref;
         uint32_t cap_mask;
@@ -112,39 +166,60 @@ public:
     void operator=(const std::string&);
 
     // Exchange internal fields with another IOBuf.
+    // 
+    // 与另一个 IOBuf 交换内部字段。
     void swap(IOBuf&);
 
     // Pop n bytes from front side
     // If n == 0, nothing popped; if n >= length(), all bytes are popped
     // Returns bytes popped.
+    // 
+    // 从头部弹出 n 个字节。如果 n == 0 ，则不弹出任何内容；如果 n >= length() ，
+    // 则弹出所有字节。返回弹出的字节。
     size_t pop_front(size_t n);
 
     // Pop n bytes from back side
     // If n == 0, nothing popped; if n >= length(), all bytes are popped
     // Returns bytes popped.
+    // 
+    // 从尾部弹出 n 个字节。如果 n == 0 ，则不弹出任何内容；如果 n >= length() ，
+    // 则弹出所有字节。返回弹出的字节。
     size_t pop_back(size_t n);
 
     // Cut off `n' bytes from front side and APPEND to `out'
     // If n == 0, nothing cut; if n >= length(), all bytes are cut
     // Returns bytes cut.
+    // 
+    // 从头部剪贴 'n' 字节 APPEND 附加到 |out| 上。如果 n == 0，则没有任何
+    // 切割;；如果 n >= length() ，则所有字节都被剪切到 |out| 上。返回字节。
     size_t cutn(IOBuf* out, size_t n);
     size_t cutn(void* out, size_t n);
     size_t cutn(std::string* out, size_t n);
     // Cut off 1 byte from the front side and set to *c
     // Return true on cut, false otherwise.
+    // 
+    // 从头部剪贴 1 字节 APPEND 附加到 |c| 上，成功返回 true ，失败 false
     bool cut1(char* c);
 
     // Cut from front side until the characters matches `delim', append
     // data before the matched characters to `out'.
     // Returns 0 on success, -1 when there's no match (including empty `delim')
     // or other errors.
+    // 
+    // 从头部剪切直到字符与 `delim' 匹配，将匹配字符前的数据追加到 |out| 。成
+    // 功时返回 0，没有匹配时返回 -1（包括空 `delim' ）或其他错误。
     int cut_until(IOBuf* out, char const* delim);
 
     // std::string version, `delim' could be binary
+    // 
+    // std::string 版本剪贴。 `delim' 可能是二进制数据。
     int cut_until(IOBuf* out, const std::string& delim);
 
     // Cut at most `size_hint' bytes(approximately) into the file descriptor
     // Returns bytes cut on success, -1 otherwise and errno is set.
+    // 
+    // 最多将 `size_hint' 字节（大约）剪贴到 fd 文件描述符中。返回成功时剪贴的字节，
+    // 否则返回 -1 ，并设置 errno 。
     ssize_t cut_into_file_descriptor(int fd, size_t size_hint = 1024*1024);
 
     // Cut at most `size_hint' bytes(approximately) into the file descriptor at
@@ -156,20 +231,37 @@ public:
     // not affect pwrite(). However, on Linux, if |fd| is open with O_APPEND,
     // pwrite() appends data to the end of the file, regardless of the value
     // of |offset|.
+    // 
+    // 最多将 `size_hint' 字节（大约）剪贴到 fd 文件描述符的给定的偏移量（从文件的开头）中。
+    // 文件偏移量不会更改。如果 `offset' 是负数，那就完全是 cut_into_file_descriptor 所
+    // 做的。
+    // 
+    // 注意： POSIX 要求文件使用 O_APPEND 标志打开，不应影响 pwrite() 。但是，在 Linux 
+    // 上，如果 |fd| 是使用 O_APPEND 打开的， pwrite() 将数据附加到文件的末尾，而不管 
+    // |offset| 的值是什么。
     ssize_t pcut_into_file_descriptor(int fd, off_t offset /*NOTE*/, 
                                       size_t size_hint = 1024*1024);
 
     // Cut into SSL channel `ssl'. Returns what `SSL_write' returns
     // and the ssl error code will be filled into `ssl_error'
+    // 
+    // 剪贴到 SSL 通道 `ssl' 中。返回 `SSL_write' 返回的内容，ssl 错误代码将填入 
+    // `ssl_error' 。
     ssize_t cut_into_SSL_channel(struct ssl_st* ssl, int* ssl_error);
 
     // Cut `count' number of `pieces' into SSL channel `ssl'.
     // Returns bytes cut on success, -1 otherwise and errno is set.
+    // 
+    // 将 `pieces' 的 `count' 数量剪贴到 SSL 通道 `ssl' 中。返回成功时切换的字节数，
+    // 否则返回 -1 ，并设置 errno 。
     static ssize_t cut_multiple_into_SSL_channel(
         struct ssl_st* ssl, IOBuf* const* pieces, size_t count, int* ssl_error);
 
     // Cut `count' number of `pieces' into file descriptor `fd'.
     // Returns bytes cut on success, -1 otherwise and errno is set.
+    // 
+    // 将 `pieces' 的 `count' 数量剪贴到文件描述符 `fd' 中。返回成功时切换的字节数，
+    // 否则返回 -1 ，并设置 errno 。
     static ssize_t cut_multiple_into_file_descriptor(
         int fd, IOBuf* const* pieces, size_t count);
 
@@ -420,6 +512,9 @@ inline bool operator!=(const butil::IOBuf& b1, const butil::IOBuf& b2)
 
 // IOPortal is a subclass of IOBuf that can read from file descriptors.
 // Typically used as the buffer to store bytes from sockets.
+// 
+// IOPortal 是 IOBuf 的子类，可以从文件描述符中读取。通常用作缓冲区来存储来自套
+// 接字的字节。
 class IOPortal : public IOBuf {
 public:
     IOPortal() : _block(NULL) { }
@@ -429,6 +524,8 @@ public:
         
     // Read at most `max_count' bytes from file descriptor `fd' and
     // append to self.
+    // 
+    // 从文件描述符 `fd' 读取最多 `max_count' 个字节并附加到自身。
     ssize_t append_from_file_descriptor(int fd, size_t max_count);
     
     // Read at most `max_count' bytes from file descriptor `fd' at a given

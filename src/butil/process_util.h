@@ -27,6 +27,9 @@ namespace butil {
 // included and separated with spaces.
 // Returns length of the command line on sucess, -1 otherwise.
 // NOTE: `buf' does not end with zero.
+// 
+// 读取该程序的命令行。如果 `with_args' 为真，则包含 args 并用 '\n' 空格分隔。
+// 返回 sucess 上命令行的长度，否则返回 -1 。注意： `buf' 不以零结尾。
 ssize_t ReadCommandLine(char* buf, size_t len, bool with_args);
 
 } // namespace butil

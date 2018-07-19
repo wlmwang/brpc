@@ -80,6 +80,8 @@ static int CallLstat(const char *path, stat_wrapper_t *sb) {
 #endif  // !(defined(OS_BSD) || defined(OS_MACOSX) || defined(OS_NACL))
 
 // Helper for NormalizeFilePath(), defined below.
+// 
+// NormalizeFilePath() 的辅助函数
 bool RealPath(const FilePath& path, FilePath* real_path) {
   ThreadRestrictions::AssertIOAllowed();  // For realpath().
   FilePath::CharType buf[PATH_MAX];
@@ -618,6 +620,8 @@ bool CreateDirectoryAndGetError(const FilePath& full_path,
   std::vector<FilePath> subpaths;
 
   // Collect a list of all parent directories.
+  // 
+  // 收集所有父目录的列表
   FilePath last_path = full_path;
   subpaths.push_back(full_path);
   for (FilePath path = full_path.DirName();
@@ -627,6 +631,8 @@ bool CreateDirectoryAndGetError(const FilePath& full_path,
   }
 
   // Iterate through the parents and create the missing ones.
+  // 
+  // 通过迭代创建父目录
   for (std::vector<FilePath>::reverse_iterator i = subpaths.rbegin();
        i != subpaths.rend(); ++i) {
     if (DirectoryExists(*i))
@@ -663,6 +669,9 @@ bool NormalizeFilePath(const FilePath& path, FilePath* normalized_path) {
 
   // To be consistant with windows, fail if |real_path_result| is a
   // directory.
+  // 
+  // 为了与 Windows 一致， |path| 必须引用一个文件。如果 |path| 指向一个目
+  // 录或一个不存在的路径，返回 false 
   stat_wrapper_t file_info;
   if (CallStat(real_path_result.value().c_str(), &file_info) != 0 ||
       S_ISDIR(file_info.st_mode))

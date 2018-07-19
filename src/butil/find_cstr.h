@@ -23,6 +23,18 @@
 #include <algorithm>
 #include "butil/thread_local.h"
 
+// 不分配临时内存空间的情况下（复用一缓冲区），使用 c-string 查找用 std::string 作为
+// 键的 std::map 容器。
+// 
+// Use like:
+// std::map<std::string, int> string_map;
+// 
+// string_map.find("hello");    // 会构造一个临时的 std::string 对象。
+// 
+// find_cstr(string_map, "hello");   // 不会构造
+// 
+
+
 // Find c-string in maps with std::string as keys without memory allocations.
 // Example:
 //   std::map<std::string, int> string_map;
@@ -43,10 +55,14 @@ namespace butil {
 
 struct StringMapThreadLocalTemp {
     bool initialized;
+    // std::string 对象复用缓冲区。注：实际被拷贝的字符串内存仍然由 std::string 对象
+    // 维护。故在 |buf| 销毁时， std::string 的析构函数调用必不可少。
     char buf[sizeof(std::string)];
 
+    // 线程退出时，析构缓冲区中的 std::string 对象
     static void delete_tls(void* buf) {
         StringMapThreadLocalTemp* temp = (StringMapThreadLocalTemp*)buf;
+        // 析构 StringMapThreadLocalTemp::buf 中 std::string 对象。
         if (temp->initialized) {
             temp->initialized = false;
             std::string* temp_string = (std::string*)temp->buf;
@@ -54,10 +70,13 @@ struct StringMapThreadLocalTemp {
         }
     }
 
+    // 获取用 const char* 构造的 std::string 对象。复用同一个缓冲区。
     inline std::string* get_string(const char* key) {
         if (!initialized) {
             initialized = true;
+            // 复用同一个缓冲区构造 std::string 对象。
             std::string* tmp = new (buf) std::string(key);
+            // 注册线程退出析构函数
             thread_atexit(delete_tls, this);
             return tmp;
         } else {
@@ -67,6 +86,7 @@ struct StringMapThreadLocalTemp {
         }
     }
 
+    // 获取用 const char* ，长度为 length 构造的 std::string 对象。
     inline std::string* get_string(const char* key, size_t length) {
         if (!initialized) {
             initialized = true;
@@ -80,12 +100,14 @@ struct StringMapThreadLocalTemp {
         }
     }
 
+    // 获取用 const char* 构造的 std::string 对象。全部转换为小写。
     inline std::string* get_lowered_string(const char* key) {
         std::string* tmp = get_string(key);
         std::transform(tmp->begin(), tmp->end(), tmp->begin(), ::tolower);
         return tmp;
     }
     
+    // 获取用 const char* ，长度为 length 构造的 std::string 对象。全部转换为小写。
     inline std::string* get_lowered_string(const char* key, size_t length) {
         std::string* tmp = get_string(key, length);
         std::transform(tmp->begin(), tmp->end(), tmp->begin(), ::tolower);
@@ -93,6 +115,7 @@ struct StringMapThreadLocalTemp {
     }
 };
 
+// 全局线程本地 c-string 构造 std::string 对象。特点为： std::string 对象内存复用。
 extern __thread StringMapThreadLocalTemp tls_stringmap_temp;
 
 template <typename T, typename C, typename A>

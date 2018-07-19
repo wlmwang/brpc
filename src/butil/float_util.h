@@ -13,6 +13,7 @@
 
 namespace butil {
 
+// 确定浮点数 |number| 是否拥有有限值。
 template <typename Float>
 inline bool IsFinite(const Float& number) {
 #if defined(OS_POSIX)
@@ -22,6 +23,7 @@ inline bool IsFinite(const Float& number) {
 #endif
 }
 
+// 确定浮点数 |number| 是否是 NaN 。
 template <typename Float>
 inline bool IsNaN(const Float& number) {
 #if defined(OS_POSIX)

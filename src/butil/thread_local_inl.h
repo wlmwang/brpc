@@ -22,6 +22,7 @@ namespace butil {
 
 namespace detail {
 
+// 线程本地变量构造管理类（线程退出，自动销毁所指内存资源）
 template <typename T>
 class ThreadLocalHelper {
 public:
@@ -29,15 +30,19 @@ public:
         if (__builtin_expect(value != NULL, 1)) {
             return value;
         }
+        // 构造 T 类型对象。
         value = new (std::nothrow) T;
         if (value != NULL) {
+            // 注册线程退出时，析构删除 T 类型对象。
             butil::thread_atexit(delete_object<T>, value);
         }
         return value;
     }
+    // 线程本地静态对象（线程级单例）
     static BAIDU_THREAD_LOCAL T* value;
 };
 
+// 初始化静态属性
 template <typename T> BAIDU_THREAD_LOCAL T* ThreadLocalHelper<T>::value = NULL;
 
 }  // namespace detail

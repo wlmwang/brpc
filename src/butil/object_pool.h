@@ -23,6 +23,11 @@
 
 // ObjectPool is a derivative class of ResourcePool to allocate and
 // reuse fixed-size objects without identifiers.
+// 
+// ObjectPool 是 ResourcePool 的"相似"类，用于分配和重用没有标识符的固定
+// 大小的对象。
+// 
+// 注释，请查看 <butil/resource_pool.h>
 
 namespace butil {
 

@@ -18,11 +18,11 @@ namespace butil {
 // end up with multiple AtExitManagers on the same process.  We don't protect
 // this for thread-safe access, since it will only be modified in testing.
 // 
-// 全局、静态的 AtExitManager 对象的指针以及执行流说明：
+// 全局、静态的 AtExitManager* g_top_manager 对象的指针以及执行流说明：
 // 1. g_top_manager 每次都会被新声明的 AtExitManager 对象重新指向。重新该指针之前，让 
 //    AtExitManager::next_manager_ 先保存 g_top_manager 指针，用于复原。
 // 2. 若该新声明的 AtExitManager 对象超过作用域时，会随即自动执行在此期间注册的回调函数。
-// 3. 更新 g_top_manager 重置回先前保存在 AtExitManager::next_manager_ 的指针。
+// 3. 重置 g_top_manager 到先前保存在 AtExitManager::next_manager_ 的指针。
 static AtExitManager* g_top_manager = NULL;
 
 AtExitManager::AtExitManager() : next_manager_(g_top_manager) {

@@ -29,12 +29,15 @@ namespace {
 // so we create a new unique filename by appending " (nnn)" before the
 // extension, where 1 <= nnn <= kMaxUniqueFiles.
 // Also used by code that cleans up said files.
+// 
+// 当我们尝试下载的文件名已被使用时，我们通过在扩展名之前附加 " (nnn)" 创建一个新的唯
+// 一文件名，其中 1 <= nnn <= kMaxUniqueFiles 。也用于清理所述文件的代码。
 static const int kMaxUniqueFiles = 100;
 
 }  // namespace
 
-// 返回 |root_path| 下的所有文件（含子目录递归计算）的总字节数。如果路径不存在，
-// 则函数返回 0
+// 返回 |root_path| 下的所有文件（含子目录递归计算）的总字节数。如果路径不存在，则函
+// 数返回 0
 int64_t ComputeDirectorySize(const FilePath& root_path) {
   int64_t running_size = 0;
   FileEnumerator file_iter(root_path, true, FileEnumerator::FILES);

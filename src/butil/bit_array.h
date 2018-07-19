@@ -18,6 +18,9 @@
 // Provide functions to get/set bits of an integral array. These functions
 // are not threadsafe because operations on different bits may modify a same
 // integer.
+// 
+// 提供函数来 get/set 整型数组的位运算。这些函数不是线程安全的，因为对不同位的操作可能
+// 会修改相同的整数.
 
 #ifndef BUTIL_BIT_ARRAY_H
 #define BUTIL_BIT_ARRAY_H
@@ -27,26 +30,35 @@
 namespace butil {
 
 // Create an array with at least |nbit| bits. The array is not cleared.
+// 
+// 创建一个至少可容纳 |nbit| 位的 uint64_t 类型的数组。
 inline uint64_t* bit_array_malloc(size_t nbit)
 {
     if (!nbit) {
         return NULL;
     }
+    // 注：malloc 是以字节为单位的函数（乘以 8 表示一个 uint64_t 长度为 8 字节）
     return (uint64_t*)malloc((nbit + 63 ) / 64 * 8/*different from /8*/);
 }
 
 // Set bit 0 ~ nbit-1 of |array| to be 0
+// 
+// 0 ~ nbit-1 位的 |array| 清零
 inline void bit_array_clear(uint64_t* array, size_t nbit)
 {
+    // 注：memset 是以字节为单位的函数，故将最后 6 位所指的 bit 位置单独置 0
     const size_t off = (nbit >> 6);
     memset(array, 0, off * 8);
     const size_t last = (off << 6);
     if (last != nbit) {
+        // ~((((uint64_t)1) << (nbit - last)) - 1)  # 前 nbit - last - 1 位全部置为 0
         array[off] &= ~((((uint64_t)1) << (nbit - last)) - 1);
     }
 }
 
 // Set i-th bit (from left, counting from 0) of |array| to be 1
+// 
+// 设置 |array| 的第 i 位为 1 （左计数，0 开始）
 inline void bit_array_set(uint64_t* array, size_t i)
 {
     const size_t off = (i >> 6);
@@ -54,6 +66,8 @@ inline void bit_array_set(uint64_t* array, size_t i)
 }
 
 // Set i-th bit (from left, counting from 0) of |array| to be 0
+// 
+// 设置 |array| 的第 i 位为 0 （左计数，0 开始）
 inline void bit_array_unset(uint64_t* array, size_t i)
 {
     const size_t off = (i >> 6);
@@ -61,6 +75,8 @@ inline void bit_array_unset(uint64_t* array, size_t i)
 }
 
 // Get i-th bit (from left, counting from 0) of |array|
+// 
+// 获取 |array| 的第 i 位的值 （左计数，0 开始）
 inline uint64_t bit_array_get(const uint64_t* array, size_t i)
 {
     const size_t off = (i >> 6);
@@ -70,6 +86,15 @@ inline uint64_t bit_array_get(const uint64_t* array, size_t i)
 // Find index of first 1-bit from bit |begin| to |end| in |array|.
 // Returns |end| if all bits are 0.
 // This function is of O(nbit) complexity.
+// 
+// @tips
+// int __builtin_ctzl (unsigned long x);
+// 返回从最低有效位位置开始的 x 中的尾随 0 位数。如果 x 为 0 ，则结果为未
+// 定义。
+// 
+// 
+// 在 |array| 中，从 |begin| 到 |end| 里寻找第一个为 1 的位的索引值。如
+// 果所有位都为 0，返回 |end| 。该函数是 O(nbit) 复杂度。
 inline size_t bit_array_first1(const uint64_t* array, size_t begin, size_t end)
 {
     size_t off1 = (begin >> 6);

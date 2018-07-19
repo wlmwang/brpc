@@ -32,14 +32,15 @@
 // 
 // \file <sys/socket.h>
 // struct sockaddr {
-//      // address family, AF_xxx (AF_INET ...) // 协议族，在socket中只能是 AF_INET
+//      // 协议族 AF_xxx (AF_INET ...)，在 socket 中只能是 AF_INET
 //      unsigned short sa_family;
-//      // 14 bytes of protocol address // 14 字节协议地址
+//      
+//      // 14 字节协议地址
 //      char sa_data[14];
 // };
-// 此数据结构用做 bind/connect/recvfrom/sendto 等网络库函数的参数，指明地址信息。
-// 注意：一般实际 socket 编程中并不直接针对此数据结构操作，而是使用另一个与 sockaddr 等价的
-// 数据结构 sockaddr_in 。
+// 此数据结构用做 bind/connect/recvfrom/sendto 等网络库函数的参数，指明地址
+// 信息。一般实际 socket 编程中并不直接针对此数据结构操作，而是使用另一个与 
+// sockaddr 等价的数据结构 sockaddr_in 。
 // 
 // Use like:
 // ...
@@ -48,34 +49,38 @@
 // mysock.sin_family = AF_INET;
 // mysock.sin_addr.s_addr = ::inet_addr("0.0.0.0");
 // ...
-// ::bind(sockfd, (struct sockaddr *)&mysock, sizeof(struct sockaddr));
+// ::bind(sockfd, (struct sockaddr*)&mysock, sizeof(struct sockaddr));
 // ...
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // \file <netinet/in.h>
 // struct sockaddr_in {
-//      // Address family, AF_xxx (AF_INET ...) // 协议族，在socket中只能是 AF_INET
+//      // 协议族 AF_xxx (AF_INET ...)，在 socket 中只能是 AF_INET
 //      short int sin_family;
-//      // Port number  // 端口号，使用网络字节顺序(大端)
+//      
+//      // 端口号，使用网络字节顺序(大端)
 //      unsigned short int sin_port;
-//      // Internet address // IP地址，使用网络字节顺序。具体见 struct in_addr
+//      
+//      // IP地址，使用网络字节顺序。具体见 struct in_addr
 //      struct in_addr sin_addr;
-//      // Same size as struct sockaddr // sockaddr 与 sockaddr_in 两个结构保持相同大小而保留的空字节
+//      
+//      // sockaddr 与 sockaddr_in 两个结构保持相同大小而保留的空字节
 //      unsigned char sin_zero[8];
 // };
 // 
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // \file <netinet/in.h>
 // struct in_addr {
-//      in_addr_t s_addr;    // 32 位 IP 地址，按照网络字节
+//      // 32 位 IP 地址，按照网络字节
+//      in_addr_t s_addr;
 // };
 // typedef uint32_t in_addr_t;
 // 
-// ---------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------
 // \file <arpa/inet.h>
 // int inet_pton(int family, const char *strptr, void *addrptr);
-// 将由指针 strptr 所指的 "点分十进制" 转换为 "二进制整数"。存放在 addrptr 所指空间中。
-// 如果成功，则返回值为 1 ；如果对于指定的 family 输入串不是有效的表达格式，则返回值为 0 ；若处理失败，函数返
-// 回 -1
+// 将由指针 strptr 所指的 "点分十进制" 转换为 "二进制整数"。存放在 |addrptr} 所指
+// 空间中。如果成功，则返回值为 1 ；如果对于指定的 family 输入串不是有效的表达格式，
+// 则返回值为 0 ；若处理失败，函数返回 -1
 // 
 // Use like:
 // struct in_addr s;
@@ -85,10 +90,13 @@
 //      exit(1); 
 // }
 // 
-// const char* inet_ntop(int family, const void *addrptr, char *strptr, size_t len);
-// 将由指针 addrptr 所指的 "二进制整数" 转换为 "点分十进制" 。存放在 strptr 所指的空间中。参数 len 是目标的
-// 大小，以免函数溢出其调用者的缓冲区。若函数处理成功，返回指向结果的指针；若函数处理失败，返回 NULL
-// 另外为了有助于规定指定目标缓冲区大小，在头文件 <netinet/in.h> 中有如下定义
+// const char* inet_ntop(int family, const void *addrptr, char *strptr, 
+//      size_t len);
+// 将由指针 addrptr 所指的 "二进制整数" 转换为 "点分十进制" 。存放在 strptr 所指的
+// 空间中。参数 len 是目标的大小，以免函数溢出其调用者的缓冲区。若函数处理成功，返回指
+// 向结果的指针；若函数处理失败，返回 NULL 。
+// 
+// 另外为了有助于规定指定目标缓冲区大小，在头文件 <netinet/in.h> 中有如下定义：
 // #define INET_ADDRSTRLEN 16   // for IPv4 dotted-decimal
 // #define INET6_ADDRSTRLEN 46  // for IPv6 hex string
 // 
@@ -108,46 +116,53 @@
 
 // @tips
 // \file <netdb.h> # 查询 DNS
-// int getnameinfo(const struct sockaddr *restrict addr, socklen_t addrlen, char *restrict host, 
-//      size_t hostlen, char *restrict serv, size_t servlen, int flags);
-// 以一个套接口地址 addr 为参数，返回一个描述主机的字符串 host 和一个描述服务的字符串 serv
-// flags:
-// NI_MAXHOST  返回的主机字符串的最大长度
-// NI_MAXSERV  返回的服务字符串的最大长度
+// int getnameinfo(const struct sockaddr *restrict addr, socklen_t addrlen, 
+//      char *restrict host, size_t hostlen, char *restrict serv, 
+//      size_t servlen, int flags);
+// 以一个套接口地址 |addr| 为参数，返回一个描述主机的字符串 |host| 和一个描述服务的
+// 字符串 |serv| 。
+// |flags|:
+// NI_MAXHOST  // 返回的主机字符串的最大长度
+// NI_MAXSERV  // 返回的服务字符串的最大长度
 // 
 // struct hostent {
-//      // official name of host // 主机的规范名 www.google.com
+//      // 主机的规范名 www.google.com
 //      char  *h_name;
-//      // alias list // 主机的别名
+//      
+//      // 主机的别名列表
 //      char **h_aliases;
-//      // host address type // 主机 ip 地址的类型，到底是 ipv4(AF_INET)，还是 ipv6(AF_INET6)
+//      // 主机 ip 地址的类型，到底是 ipv4(AF_INET)，还是 ipv6(AF_INET6)
 //      int    h_addrtype;
-//      // length of address // 主机 ip 地址的长度
+//      
+//      // 主机 ip 地址的长度
 //      int    h_length;
-//      // list of addresses // 主机的 ip 地址(网络字节序存储)，可能需要调用 inet_ntop() 转换
+//      
+//      // 主机的 ip 地址(网络字节序存储)列表，可能需要调用 inet_ntop() 转换
 //      char **h_addr_list;
 // }
 // #define h_addr h_addr_list[0] /* for backward compatibility */
 //
 // struct hostent *gethostbyname(const char *name);
-// 根据域名或者主机名（例如 "www.google.cn" 等等）转换成是一个 hostent 的结构。如果函数调用失败，将返回 NULL.
-// gethostbyname 返回的是一个指向静态变量的指针，不可重入。
+// 根据域名或者主机名（例如 "www.google.cn" 等等）转换成是一个 |hostent| 的结构。
+// 如果函数调用失败，将返回 NULL 。注： gethostbyname() 返回的是一个指向静态变量
+// 的指针，不可重入。
 // 
-// int gethostbyname_r(const char *restrict name, struct hostent *restrict ret, char *restrict buf, 
-//      size_t buflen, struct hostent **restrict result, int *restrict h_errnop);
-// 是 gethostbyname 的线程安全版本。
+// int gethostbyname_r(const char *restrict name, struct hostent *restrict 
+//      ret, char *restrict buf, size_t buflen, struct hostent **restrict 
+//      result, int *restrict h_errnop);
+// 是 gethostbyname() 的线程安全版本。
 
 
 // @tips
 // \file <netinet/in.h>
 // #define INADDR_ANY ((in_addr_t) 0x00000000)
-// INADDR_ANY 就是指定地址为 0.0.0.0 的地址，这个地址事实上表示不确定地址、所有地址、任意地址
-// 一般来说，在各个系统中均定义成为 0 值。
+// INADDR_ANY 就是指定地址为 0.0.0.0 的地址，这个地址事实上表示不确定地址、所有地址、
+// 任意地址一般来说，在各个系统中均定义成为 0 值。
 // 
 // #define INADDR_NONE ((in_addr_t) 0xffffffff)
-// 代表地址为 255.255.255.255 ，一般来说，表示该地址无效。如在函数 inet_addr() 转换中：如果 
-// cp 参数中的字符串不包含合法的 Internet 地址。例如：如果 "a.b.c.d" 地址的一部分超过 255 ，
-// 则 inet_addr 将返回值 INADDR_NONE
+// 代表地址为 255.255.255.255 ，一般来说，表示该地址无效。如在函数 inet_addr() 转
+// 换中：如果 cp 参数中的字符串不包含合法的 Internet 地址。例如：如果 "a.b.c.d" 地
+// 址的一部分超过 255 ，则 inet_addr 将返回值 INADDR_NONE 。
 
 namespace butil {
 
@@ -176,7 +191,7 @@ inline ip_t int2ip(in_addr_t ip_value) {
 // `ip_str' is in IPv4 dotted-quad format: `127.0.0.1', `10.23.249.73' ...
 // Returns 0 on success, -1 otherwise.
 // 
-// 转换 const char* ip_str 字符串到 ip_t 结构。底层使用 inet_pton()
+// 转换 |const char* ip_str| 字符串到 |ip_t| 结构。底层使用 inet_pton()
 // 成功返回 0 ，失败返回 -1
 int str2ip(const char* ip_str, ip_t* ip);
 

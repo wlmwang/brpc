@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// 这个类的作用类似于 scoped_ptr (自带自定义的删除器)。但相比于 scoped_ptr 管理指
-// 针， ScopedGeneric 管理的是对象的副本（非指针资源）。
+// 这个类的作用类似于 scoped_ptr (自带自定义的删除器)。但相比于 scoped_ptr 管理
+// 指针， ScopedGeneric 管理的是对象的副本（非指针资源）。
 // 场景如： ScopedFD 就是 ScopedGeneric 的一个特化版本，用来管理文件描述符。
 
 #ifndef BUTIL_SCOPED_GENERIC_H_
@@ -63,8 +63,8 @@ namespace butil {
 // 基于此类定义一个 scoper 可以让你获得非指针类型的 scoper ，而无需编写自定义代码进行 
 // set ，reset 和 move 等操作，并获得与 scoped_ptr 中使用的几乎相同的语义。
 //
-// 对于能够放入 ScopedGeneric 的对象，它必须支持标准的可复制语义并具有特定的 "无效" 值。
-// 特征 traits 必须定义一个 Free 函数，并为默认构造和释放的对象分配 "无效" 值。
+// 对于能够放入 ScopedGeneric 的对象，它必须支持标准的可复制语义并具有特定的 "无效" 
+// 值。特征 traits 必须定义一个 Free 函数，并为默认构造和释放的对象分配 "无效" 值。
 // 
 // Use like:
 // 

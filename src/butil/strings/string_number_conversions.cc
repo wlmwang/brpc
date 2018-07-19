@@ -20,6 +20,9 @@ namespace butil {
 
 namespace {
 
+// |STR| 为目标类型。即， std::string/string16 字符串类型。|INT| 为源数据
+// 类型。 |UINT| 为源数据类型 |INT| 无损情况下转换为无符号时对应的类型。
+// |NEG| = true 时为有符号，否则为无符号。
 template <typename STR, typename INT, typename UINT, bool NEG>
 struct IntToStringT {
   // This is to avoid a compiler warning about unary minus on unsigned type.
@@ -29,6 +32,14 @@ struct IntToStringT {
   // Even though if INT is unsigned, it's impossible for value < 0, so the
   // unary minus will never be taken, the compiler will still generate a
   // warning.  We do a little specialization dance...
+  // 
+  // 这是为了避免编译器有关无符号类型的一元减号的警告。例如，假设您有以下代码：
+  // 
+  //   template <typename INT>
+  //   INT abs(INT value) { return value < 0 ? -value : value; }
+  // 
+  // 当 INT 是无符号，value < 0 也是不可能的，因此永远不会采用一元减号，但编译器
+  // 还是会生成警告。
   template <typename INT2, typename UINT2, bool NEG2>
   struct ToUnsignedT {};
 
@@ -48,18 +59,24 @@ struct IntToStringT {
 
   // This set of templates is very similar to the above templates, but
   // for testing whether an integer is negative.
+  // 
+  // 测试源数据是否为负值。模板参数 NEG 可能传递说明为有符号 (true) ，需要进
+  // 一步判断实际 value 值是否为负值。
   template <typename INT2, bool NEG2>
   struct TestNegT {};
   template <typename INT2>
   struct TestNegT<INT2, false> {
     static bool TestNeg(INT2 value) {
       // value is unsigned, and can never be negative.
+      // 
+      // 无符号永远不能为负，与 0 比较无意义。
       return false;
     }
   };
   template <typename INT2>
   struct TestNegT<INT2, true> {
     static bool TestNeg(INT2 value) {
+      // 判断源数据 value 值是否为负值。
       return value < 0;
     }
   };
@@ -67,24 +84,35 @@ struct IntToStringT {
   static STR IntToString(INT value) {
     // log10(2) ~= 0.3 bytes needed per bit or per byte log10(2**8) ~= 2.4.
     // So round up to allocate 3 output characters per byte, plus 1 for '-'.
+    // 
+    // 每字节十进制整型数需要 log10(2**8) ~= 2.4 字节。所以向上舍入为每个字节分配 
+    // 3 个输出字符，加上 1 代表 '-' 。
     const int kOutputBufSize = 3 * sizeof(INT) + 1;
 
     // Allocate the whole string right away, we will right back to front, and
     // then return the substr of what we ended up using.
+    // 
+    // 立即分配整个字符串，最终返回我们使用的内容。
     STR outbuf(kOutputBufSize, 0);
 
+    // 源数字是否为负值
     bool is_neg = TestNegT<INT, NEG>::TestNeg(value);
     // Even though is_neg will never be true when INT is parameterized as
     // unsigned, even the presence of the unary operation causes a warning.
+    // 
+    // 将 value 转换成无符号类型数字。
     UINT res = ToUnsignedT<INT, UINT, NEG>::ToUnsigned(value);
 
+    // 从 value 最地位开始取出数字插入 outbuf 最右侧。
     typename STR::iterator it(outbuf.end());
     do {
       --it;
       DCHECK(it != outbuf.begin());
+      // 取出 value 最低位数字，并转换为对应的字符型数字
       *it = static_cast<typename STR::value_type>((res % 10) + '0');
       res /= 10;
     } while (res != 0);
+    // 添加负号
     if (is_neg) {
       --it;
       DCHECK(it != outbuf.begin());
@@ -95,13 +123,18 @@ struct IntToStringT {
 };
 
 // Utility to convert a character to a digit in a given base
+// 
+// 用于将给定基数字符转换为的数字的实用程序。
 template<typename CHAR, int BASE, bool BASE_LTE_10> class BaseCharToDigit {
 };
 
 // Faster specialization for bases <= 10
+// 
+// 基数 <= 10 的速度更快的特化版本。
 template<typename CHAR, int BASE> class BaseCharToDigit<CHAR, BASE, true> {
  public:
   static bool Convert(CHAR c, uint8_t* digit) {
+    // 基数 <= 10 字符转换成整型。
     if (c >= '0' && c < '0' + BASE) {
       *digit = c - '0';
       return true;
@@ -111,9 +144,12 @@ template<typename CHAR, int BASE> class BaseCharToDigit<CHAR, BASE, true> {
 };
 
 // Specialization for bases where 10 < base <= 36
+// 
+// 10 < 基数 <= 36 的特化版本。
 template<typename CHAR, int BASE> class BaseCharToDigit<CHAR, BASE, false> {
  public:
   static bool Convert(CHAR c, uint8_t* digit) {
+    // 10 < 基数 <= 36 字符转换成整型。
     if (c >= '0' && c <= '9') {
       *digit = c - '0';
     } else if (c >= 'a' && c < 'a' + BASE - 10) {
@@ -127,6 +163,7 @@ template<typename CHAR, int BASE> class BaseCharToDigit<CHAR, BASE, false> {
   }
 };
 
+// BaseCharToDigit<> 模版类的辅助函数（可自动类型推导）。
 template<int BASE, typename CHAR> bool CharToDigit(CHAR c, uint8_t* digit) {
   return BaseCharToDigit<CHAR, BASE, BASE <= 10>::Convert(c, digit);
 }
@@ -135,6 +172,11 @@ template<int BASE, typename CHAR> bool CharToDigit(CHAR c, uint8_t* digit) {
 // locale independent, whereas the functions we are replacing were
 // locale-dependent. TBD what is desired, but for the moment let's not introduce
 // a change in behaviour.
+// 
+// 在 string_util.h 中定义了一个用于 wchars 的 IsWhitespace ，但它与 locale 无关，
+// 而我们要替换的函数是与语言环境相关的。
+// 
+// 判定字符是否为空白字符的模版类。（可用于 char,char16）
 template<typename CHAR> class WhitespaceHelper {
 };
 
@@ -152,6 +194,7 @@ template<> class WhitespaceHelper<char16> {
   }
 };
 
+// WhitespaceHelper<> 模版类的辅助函数（可自动类型推导）。
 template<typename CHAR> bool LocalIsWhitespace(CHAR c) {
   return WhitespaceHelper<CHAR>::Invoke(c);
 }
@@ -162,6 +205,12 @@ template<typename CHAR> bool LocalIsWhitespace(CHAR c) {
 //  - static functions min, max (returning the minimum and maximum permitted
 //    values)
 //  - constant kBase, the base in which to interpret the input
+//  
+// IteratorRangeToNumberTraits 应该提供：
+// - iterator_type 的 typedef ，用作输入的迭代器类型。
+// - value_type 的 typedef ，目标数字类型。
+// - 静态函数 min,max （返回最小和最大允许值）。
+// - 常数 kBase，解释输入的基础。
 template<typename IteratorRangeToNumberTraits>
 class IteratorRangeToNumber {
  public:
@@ -171,11 +220,13 @@ class IteratorRangeToNumber {
 
   // Generalized iterator-range-to-number conversion.
   //
+  // 广义迭代器范围到数字转换。
   static bool Invoke(const_iterator begin,
                      const_iterator end,
                      value_type* output) {
-    bool valid = true;
+    bool valid = true;  // 转换是否有效
 
+    // 跳过所有前导空白符。并设置无效标志
     while (begin != end && LocalIsWhitespace(*begin)) {
       valid = false;
       ++begin;
@@ -218,6 +269,8 @@ class IteratorRangeToNumber {
 
       // Note: no performance difference was found when using template
       // specialization to remove this check in bases other than 16
+      // 
+      // 注意：跳过 16 进制字符串开头的 0X
       if (traits::kBase == 16 && end - begin > 2 && *begin == '0' &&
           (*(begin + 1) == 'x' || *(begin + 1) == 'X')) {
         begin += 2;
@@ -226,11 +279,13 @@ class IteratorRangeToNumber {
       for (const_iterator current = begin; current != end; ++current) {
         uint8_t new_digit = 0;
 
+        // 转换单字符为数字，写入到 new_digit 中。
         if (!CharToDigit<traits::kBase>(*current, &new_digit)) {
           return false;
         }
 
         if (current != begin) {
+          // 是超过目标整型值域。
           if (!Sign::CheckBounds(output, new_digit)) {
             return false;
           }
@@ -243,8 +298,10 @@ class IteratorRangeToNumber {
     }
   };
 
+  // 正数转换
   class Positive : public Base<Positive> {
    public:
+    // 判断 |output| + |new_digit| 是否超过目标整型的最大值。
     static bool CheckBounds(value_type* output, uint8_t new_digit) {
       if (*output > static_cast<value_type>(traits::max() / traits::kBase) ||
           (*output == static_cast<value_type>(traits::max() / traits::kBase) &&
@@ -259,8 +316,10 @@ class IteratorRangeToNumber {
     }
   };
 
+  // 负数转换
   class Negative : public Base<Negative> {
    public:
+    // 判断 |output| - |new_digit| 是否超过目标整型的最小值。
     static bool CheckBounds(value_type* output, uint8_t new_digit) {
       if (*output < traits::min() / traits::kBase ||
           (*output == traits::min() / traits::kBase &&
@@ -276,6 +335,8 @@ class IteratorRangeToNumber {
   };
 };
 
+// |ITERATOR| 为源字符串迭代器类型（StringPiece::const_iterator），
+// |VALUE| 目标类型， |BASE| 为源字符串（迭代器）类型基数。
 template<typename ITERATOR, typename VALUE, int BASE>
 class BaseIteratorRangeToNumberTraits {
  public:
@@ -290,6 +351,7 @@ class BaseIteratorRangeToNumberTraits {
   static const int kBase = BASE;
 };
 
+// 16 进制字符串转换成 *int* 类型特化
 template<typename ITERATOR>
 class BaseHexIteratorRangeToIntTraits
     : public BaseIteratorRangeToNumberTraits<ITERATOR, int, 16> {
@@ -310,6 +372,7 @@ class BaseHexIteratorRangeToUInt64Traits
     : public BaseIteratorRangeToNumberTraits<ITERATOR, uint64_t, 16> {
 };
 
+// 特化字符串迭代器为 StringPiece::const_iterator
 typedef BaseHexIteratorRangeToIntTraits<StringPiece::const_iterator>
     HexIteratorRangeToIntTraits;
 
@@ -322,10 +385,13 @@ typedef BaseHexIteratorRangeToInt64Traits<StringPiece::const_iterator>
 typedef BaseHexIteratorRangeToUInt64Traits<StringPiece::const_iterator>
     HexIteratorRangeToUInt64Traits;
 
+// 16 进制转换成数字类型为 uint8_t 类型字节数组。如 |8A| -> |18|
+// |*output| 将包含在错误之前成功解析的字节数，前导 0x 或 +/- 是不允许的。
 template<typename STR>
 bool HexStringToBytesT(const STR& input, std::vector<uint8_t>* output) {
   DCHECK_EQ(output->size(), 0u);
   size_t count = input.size();
+  // 必须是整字节字符
   if (count == 0 || (count % 2) != 0)
     return false;
   for (uintptr_t i = 0; i < count / 2; ++i) {
@@ -346,6 +412,9 @@ class StringPieceToNumberTraits
                                              BASE> {
 };
 
+// IteratorRangeToNumber 与 StringPieceToNumberTraits 的包装器辅助函数。
+// 
+// 基数为 10 的 StringPiece 字符串转换为 |VALUE| 整型类型数字。
 template <typename VALUE>
 bool StringToIntImpl(const StringPiece& input, VALUE* output) {
   return IteratorRangeToNumber<StringPieceToNumberTraits<VALUE, 10> >::Invoke(
@@ -359,6 +428,9 @@ class StringPiece16ToNumberTraits
                                              BASE> {
 };
 
+// IteratorRangeToNumber 与 StringPiece16ToNumberTraits 的包装器辅助函数。
+// 
+// 基数为 10 的 StringPiece16 字符串转换为 |VALUE| 整型类型数字。
 template <typename VALUE>
 bool String16ToIntImpl(const StringPiece16& input, VALUE* output) {
   return IteratorRangeToNumber<StringPiece16ToNumberTraits<VALUE, 10> >::Invoke(
@@ -413,6 +485,8 @@ string16 SizeTToString16(size_t value) {
 
 std::string DoubleToString(double value) {
   // According to g_fmt.cc, it is sufficient to declare a buffer of size 32.
+  // 
+  // 根据 g_fmt.cc ，声明一个大小为 32 的缓冲区就足够了。
   char buffer[32];
   dmg_fp::g_fmt(buffer, value);
   return std::string(buffer);
@@ -492,6 +566,8 @@ std::string HexEncode(const void* bytes, size_t size) {
   static const char kHexChars[] = "0123456789ABCDEF";
 
   // Each input byte creates two output hex characters.
+  // 
+  // 每个输入字节创建两个十六进制字符。
   std::string ret(size * 2, '\0');
 
   for (size_t i = 0; i < size; ++i) {

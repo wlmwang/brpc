@@ -25,6 +25,9 @@ namespace butil {
 // Read the stdout of child process executing `cmd'.
 // Returns the exit status(0-255) of cmd and all the output is stored in
 // |os|. -1 otherwise and errno is set appropriately.
+// 
+// 在子进程中执行 `cmd'(shell) ，返回 cmd 的退出状态（0-255），所有输出写入 |os| 
+// 中。否则为 -1 ，并且正确设置 errno 。
 int read_command_output(std::ostream& os, const char* cmd);
 
 }

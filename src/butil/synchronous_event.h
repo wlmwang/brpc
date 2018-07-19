@@ -30,10 +30,15 @@
 //
 // Example:
 //    // Declare event type
+//    //
+//    // 声明事件类型。观察者的事件触发入口函数 on_event() 接受两个参数
 //    typedef SynchronousEvent<int, const Foo*> FooEvent;
 //
 //    // Implement observer type
+//    // 
+//    // 观察者类。需继承 FooEvent<> 类
 //    class FooObserver : public FooEvent::Observer {
+//        // 事件触发入口函数
 //        void on_event(int, const Foo*) {
 //            ... handle the event ...
 //        }
@@ -44,20 +49,33 @@
 //    foo_event.subscribe(&foo_observer); // register the observer to the event
 //    foo_event.notify(1, NULL);          // foo_observer.on_event(1, NULL) is
 //                                        // called *immediately*
+//                                        
+// 
+// 同步事件通知。事件的观察者将在通知事件的相同上下文中立即被调用。该实用程序使用数组来存储所有
+// 观察者，因此仅适用于相对少量的观察者。
+//
 
 namespace butil {
 
 namespace detail {
 // NOTE: This is internal class. Inherit SynchronousEvent<..>::Observer instead.
+// 
+// 观察者基类模板。事件触发入口函数 on_event() ，最多接受三个参数。
 template <typename _A1, typename _A2, typename _A3> class EventObserver;
 }
 
 // All methods are *NOT* thread-safe.
 // You can copy a SynchronousEvent.
+// 
+// 所有方法都是非线程安全的。可以复制 SynchronousEvent 整个对象。
+// 
+// 最多带三个参数的同步事件通知管理器对象。
 template <typename _A1 = void, typename _A2 = void, typename _A3 = void>
 class SynchronousEvent {
 public:
+    // 观察者类型
     typedef detail::EventObserver<_A1, _A2, _A3> Observer;
+    // 观察者列表
     typedef std::vector<Observer*> ObserverSet;
     
     SynchronousEvent() : _n(0) {}
@@ -65,11 +83,14 @@ public:
     // Add an observer, callable inside on_event() and added observers
     // will be called with the same event in the same run.
     // Returns 0 when successful, -1 when the obsever is NULL or already added. 
+    // 
+    // 添加一个观察者
     int subscribe(Observer* ob) {
         if (NULL == ob) {
             LOG(ERROR) << "Observer is NULL";
             return -1;
         }
+        // 不能重复添加观察者
         if (std::find(_obs.begin(), _obs.end(), ob) != _obs.end()) {
             return -1;
         }
@@ -81,6 +102,8 @@ public:
     // Remove an observer, callable inside on_event().
     // Users are responsible for removing observers before destroying them.
     // Returns 0 when successful, -1 when the observer is NULL or already removed.
+    // 
+    // "逻辑"的删除一个观察者
     int unsubscribe(Observer* ob) {
         if (NULL == ob) {
             LOG(ERROR) << "Observer is NULL";
@@ -91,6 +114,7 @@ public:
         if (it == _obs.end()) {
             return -1;
         }
+        // "逻辑"的删除一个观察者
         *it = NULL;
         --_n;
         return 0;
@@ -98,6 +122,7 @@ public:
 
     // Remove all observers, callable inside on_event()
     void clear() {
+        // "逻辑"的删除所有观察者
         for (typename ObserverSet::iterator
                  it = _obs.begin(); it != _obs.end(); ++it) {
             *it = NULL;
@@ -106,12 +131,18 @@ public:
     }
 
     // Get number of observers
+    // 
+    // 获取观察者实际数量
     size_t size() const { return _n; }
 
     // No observers or not
+    // 
+    // 观察者列表是否为空
     bool empty() const { return size() == 0UL; }
 
     // Notify observers without parameter, errno will not be changed
+    // 
+    // 不带参数的观察者通知。不改变 errno
     void notify() {
         const int saved_errno = errno;
         for (size_t i = 0; i < _obs.size(); ++i) {
@@ -119,11 +150,14 @@ public:
                 _obs[i]->on_event();
             }
         }
+        // 收缩至实际观察者列表（使"逻辑"删除生效）
         _shrink();
         errno = saved_errno;
     }
 
     // Notify observers with 1 parameter, errno will not be changed
+    // 
+    // 带 1 个参数的观察者通知。不改变 errno
     template <typename _B1> void notify(const _B1& b1) {
         const int saved_errno = errno;
         for (size_t i = 0; i < _obs.size(); ++i) {
@@ -131,11 +165,14 @@ public:
                 _obs[i]->on_event(b1);
             }
         }
+        // 收缩至实际观察者列表（使"逻辑"删除生效）
         _shrink();
         errno = saved_errno;
     }
 
     // Notify observers with 2 parameters, errno will not be changed
+    // 
+    // 带 2 个参数的观察者通知。不改变 errno
     template <typename _B1, typename _B2>
     void notify(const _B1& b1, const _B2& b2) {
         const int saved_errno = errno;
@@ -144,11 +181,14 @@ public:
                 _obs[i]->on_event(b1, b2);
             }
         }
+        // 收缩至实际观察者列表（使"逻辑"删除生效）
         _shrink();
         errno = saved_errno;
     }
 
     // Notify observers with 3 parameters, errno will not be changed
+    // 
+    // 带 3 个参数的观察者通知。不改变 errno
     template <typename _B1, typename _B2, typename _B3>
     void notify(const _B1& b1, const _B2& b2, const _B3& b3) {
         const int saved_errno = errno;
@@ -157,11 +197,13 @@ public:
                 _obs[i]->on_event(b1, b2, b3);
             }
         }
+        // 收缩至实际观察者列表（使"逻辑"删除生效）
         _shrink();
         errno = saved_errno;
     }
         
 private:
+    // 收缩至实际观察者列表（使"逻辑"删除生效）
     void _shrink() {
         if (_n == _obs.size()) {
             return;
@@ -185,6 +227,11 @@ namespace detail {
 // Add const reference for types which is larger than sizeof(void*). This
 // is reasonable in most cases and making signature of SynchronousEvent<...>
 // cleaner.
+// 
+// 为大于 sizeof(void*) 的类型添加 const 引用。这在大多数情况下是合理的（大对象类型不适
+// 合作为参数。做到尽量使用引用参数约束），并使的 SynchronousEvent<...> 更清晰的签名。
+// 
+// 定义 const T& 约束的引用。如果 T 本身就是引用，则不添加 const 约束。
 template <typename T> struct _AddConstRef { typedef const T& type; };
 template <typename T> struct _AddConstRef<T&> { typedef T& type; };
 
@@ -195,13 +242,17 @@ struct if_c { typedef T1 type; };
 template <typename T1, typename T2>
 struct if_c<false, T1, T2> { typedef T2 type; };
 
+// 为大于 sizeof(void*) 的类型添加 const 引用。这在大多数情况下是合理的（大对象类型不适
+// 合作为参数，复制成本高），并使的 SynchronousEvent<...> 更清晰的签名。
 template <typename T>
 struct AddConstRef : public if_c<(sizeof(T)<=sizeof(void*)),
     T, typename _AddConstRef<T>::type> {};
 
+// 观察者基类
 template <> class EventObserver<void, void, void> {
 public:
     virtual ~EventObserver() {}
+    // 事件触发入口函数
     virtual void on_event() = 0;
 };
 

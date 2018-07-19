@@ -17,6 +17,9 @@
 
 // Get name of a class. For example, class_name<T>() returns the name of T
 // (with namespace prefixes). This is useful in template classes.
+// 
+// 获取一个类的名字。例如，class_name<T>() 返回 T 的名称（带有命名空间前缀）。多用
+// 于模版类中。
 
 #ifndef BUTIL_CLASS_NAME_H
 #define BUTIL_CLASS_NAME_H
@@ -26,14 +29,19 @@
 
 namespace butil {
 
+// 转换 |name| 为人类可读类名字符串。 |name| = typeid(T).name() 为 C++ ABI 规
+// 则下的有效名称。
 std::string demangle(const char* name);
 
 namespace detail {
 template <typename T> struct ClassNameHelper { static std::string name; };
+// 静态成员初始化
 template <typename T> std::string ClassNameHelper<T>::name = demangle(typeid(T).name());
 }
 
 // Get name of class |T|, in std::string.
+// 
+// 返回类 |T| 的类名字符串(std::string)。指向 ClassNameHelper<T> 模版类的静态属性 |name| 的引用。
 template <typename T> const std::string& class_name_str() {
     // We don't use static-variable-inside-function because before C++11
     // local static variable is not guaranteed to be thread-safe.
@@ -42,11 +50,15 @@ template <typename T> const std::string& class_name_str() {
 
 // Get name of class |T|, in const char*.
 // Address of returned name never changes.
+// 
+// 返回类 |T| 的类名字符串(const char*)。指向 ClassNameHelper<T> 模版类的静态属性 |name| 的指针。
 template <typename T> const char* class_name() {
     return class_name_str<T>().c_str();
 }
 
 // Get typename of |obj|, in std::string
+// 
+// 返回类对象 |obj| 的类名字符串(std::string)。
 template <typename T> std::string class_name_str(T const& obj) {
     return demangle(typeid(obj).name());
 }

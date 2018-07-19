@@ -47,6 +47,9 @@ BRPC_INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
     /* If the fields n and e in r are NULL, the corresponding input
      * parameters MUST be non-NULL for n and e.  d may be
      * left NULL (in case only the public key is used).
+     *
+     * 如果 |r| 中的字段 n 和 e 为 NULL，则 |n| 和 |e| 的相应输入参数必须为
+     * 非 NULL 。 |d| 可以保留为 NULL （如果仅使用公钥）。
      */
     if ((r->n == NULL && n == NULL)
             || (r->e == NULL && e == NULL))
@@ -71,6 +74,9 @@ BRPC_INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
 BRPC_INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q) {
     /* If the fields p and q in r are NULL, the corresponding input
      * parameters MUST be non-NULL.
+     *
+     * 如果 |r| 中的字段 p 和 q 为 NULL，则 |p| 和 |q| 的相应输入参数必须为
+     * 非 NULL 。
      */
     if ((r->p == NULL && p == NULL)
             || (r->q == NULL && q == NULL))
@@ -91,6 +97,9 @@ BRPC_INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q) {
 BRPC_INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp) {
     /* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
      * parameters MUST be non-NULL.
+     *
+     * 如果 |r| 中的字段 dmp1,dmq1 和 iqmp 为 NULL，则 |dmp1|,|dmq1| 和 |iqmp| 的相
+     * 应输入参数必须为非 NULL 。
      */
     if ((r->dmp1 == NULL && dmp1 == NULL)
             || (r->dmq1 == NULL && dmq1 == NULL)
@@ -154,6 +163,9 @@ BRPC_INLINE void DSA_get0_pqg(const DSA *d,
 BRPC_INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
     /* If the fields p, q and g in d are NULL, the corresponding input
      * parameters MUST be non-NULL.
+     *
+     * 如果 |d| 中的字段 p,q 和 g 为 NULL，则 |p|,|q| 和 |d| 的相应输入参数必
+     * 须为非 NULL 。
      */
     if ((d->p == NULL && p == NULL)
             || (d->q == NULL && q == NULL)
@@ -188,6 +200,9 @@ BRPC_INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key) {
     /* If the field pub_key in d is NULL, the corresponding input
      * parameters MUST be non-NULL.  The priv_key field may
      * be left NULL.
+     *
+     * 如果 |d| 中的字段 pub_key 为 NULL，则 |pub_key| 的相应输入参数必须为
+     * 非 NULL 。 |priv_key| 可能为 NULL 。
      */
     if (d->pub_key == NULL && pub_key == NULL)
         return 0;
@@ -234,6 +249,9 @@ BRPC_INLINE void DH_get0_pqg(const DH *dh,
 BRPC_INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g) {
     /* If the fields p and g in d are NULL, the corresponding input
      * parameters MUST be non-NULL.  q may remain NULL.
+     *
+     * 如果 |dh| 中的字段 p 和 g 为 NULL，则 |p| 和 |g| 的相应输入参数必
+     * 须为非 NULL 。 |q| 可能为 NULL 。
      */
     if ((dh->p == NULL && p == NULL)
             || (dh->g == NULL && g == NULL))
@@ -270,6 +288,9 @@ BRPC_INLINE int DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key) {
     /* If the field pub_key in dh is NULL, the corresponding input
      * parameters MUST be non-NULL.  The priv_key field may
      * be left NULL.
+     *
+     * 如果 |dh| 中的字段 pub_key 为 NULL，则 |pub_key| 的相应输入参数必
+     * 须为非 NULL 。 |priv_key| 可能为 NULL 。
      */
     if (dh->pub_key == NULL && pub_key == NULL)
         return 0;

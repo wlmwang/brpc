@@ -15,6 +15,9 @@ namespace butil {
 // This class is a simple wrapper for string16 which also contains a null
 // state.  This should be used only where the difference between null and
 // empty is meaningful.
+// 
+// 这个类是 string16 的一个简单包装器，它也包含一个 null 状态。仅当 null 和 empty 
+// 之间的差异有意义时，才应使用此方法。
 class NullableString16 {
  public:
   NullableString16() : is_null_(true) { }

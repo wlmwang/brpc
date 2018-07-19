@@ -8,8 +8,8 @@
 // The implementation includes annotations to avoid some false positives
 // when using data race detection tools.
 // 
-// 用于引用计数的原子语义的底层实现。实现包含注释，避免在使用数据条件竞争检测工具时出现
-// 的不正确的 false 返回。
+// 用于引用计数的原子语义的底层实现。实现包含注释，避免在使用数据条件竞争检测工具时出
+// 现的不正确的 false 返回。
 // 引用计数器请直接使用 butil/memory/ref_counted.h
 
 #ifndef BUTIL_ATOMIC_REF_COUNT_H_

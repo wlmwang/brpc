@@ -38,12 +38,12 @@
 // 
 // 在许多其他平台上，默认情况下 sizeof(wchar_t) 为 4 个字节。
 // 我们可以通过使用 GCC 标志 -fshort-wchar 使其为 2 个字节。但是 std::wstring 在运行
-// 时会有问题，因为它调用了一些来自本机系统 C 函数库（如 wcslen ），它是使用 4 字节的 wchar_t
-// 使用 4 字节 wchar_t 字符串来携带 UTF-16 数据是浪费的，在 UTF-32 被编码为 wchar_t 的
-// 那些系统上完全不正确。
+// 时会有问题，因为它调用了一些来自本机系统 C 函数库（如 wcslen ），它是使用 4 字节的 
+// wchar_t 使用 4 字节 wchar_t 字符串来携带 UTF-16 数据是浪费的，在 UTF-32 被编码为 
+// wchar_t 的那些系统上完全不正确。
 // 
-// 这里我们定义 string16 ，它类似于 std::wstring ，但是它是用自定义的 2 字节 char 兼容
-// 的函数来替换所有的 libc 库函数。它能够兼容处理 UTF-16 编码的数据
+// 这里我们定义 string16 ，它类似于 std::wstring ，但是它是用自定义的 2 字节 char 兼
+// 容的函数来替换所有的 libc 库函数。它能够兼容处理 UTF-16 编码的数据。
 
 #include <stdio.h>
 #include <string>
@@ -102,8 +102,8 @@ struct string16_char_traits {
   // \file #include <ios>
   // template<class State> class fpos;
   // 类模板 std::fpos 的特化。标识流或文件中的绝对位置
-  // 每个 fpos 类型对象保有流中的字节位置（典型地为 std::streamoff 类型作为私有成员）和
-  // 当前迁移状态， State 类型值（典型地为 std::mbstate_t ）
+  // 每个 fpos 类型对象保有流中的字节位置（典型地为 std::streamoff 类型作为私有成员）
+  // 和当前迁移状态， State 类型值（典型地为 std::mbstate_t ）
   typedef std::fpos<state_type> pos_type;
 
   static void assign(char_type& c1, const char_type& c2) {

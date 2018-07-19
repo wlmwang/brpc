@@ -46,8 +46,10 @@ void StringSplitter::init() {
     // Find the starting _head and _tail.
     if (__builtin_expect(_head != NULL, 1)) {
         if (_empty_field_action == SKIP_EMPTY_FIELD) {
+            // 跳过开头的分隔符
             for (; _sep == *_head && not_end(_head); ++_head) {}
         }
+        // 跳过所有不是分隔符的字符串（迭代第一个字段）
         for (_tail = _head; *_tail != _sep && not_end(_tail); ++_tail) {}
     } else {
         _tail = NULL;
@@ -59,10 +61,12 @@ StringSplitter& StringSplitter::operator++() {
         if (not_end(_tail)) {
             ++_tail;
             if (_empty_field_action == SKIP_EMPTY_FIELD) {
+                // 跳过连续的分隔符
                 for (; _sep == *_tail && not_end(_tail); ++_tail) {}
             }
         }
         _head = _tail;
+        // 跳过所有不是分隔符的字符串（迭代下一个字段）
         for (; *_tail != _sep && not_end(_tail); ++_tail) {}
     }
     return *this;
@@ -128,36 +132,42 @@ int StringSplitter::to_uint(unsigned int* pv) const {
 
 int StringSplitter::to_long(long* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtol(field(), &endptr, 10);
     return (endptr == field() + length()) ? 0 : -1;
 }
 
 int StringSplitter::to_ulong(unsigned long* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtoul(field(), &endptr, 10);
     return (endptr == field() + length()) ? 0 : -1;
 }
 
 int StringSplitter::to_longlong(long long* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtoll(field(), &endptr, 10);
     return (endptr == field() + length()) ? 0 : -1;
 }
 
 int StringSplitter::to_ulonglong(unsigned long long* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtoull(field(), &endptr, 10);
     return (endptr == field() + length()) ? 0 : -1;
 }
 
 int StringSplitter::to_float(float* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtof(field(), &endptr);
     return (endptr == field() + length()) ? 0 : -1;
 }
 
 int StringSplitter::to_double(double* pv) const {
     char* endptr = NULL;
+    // 如果 separator 是一个数字，则转换函数始终返回 -1 。
     *pv = strtod(field(), &endptr);
     return (endptr == field() + length()) ? 0 : -1;
 }

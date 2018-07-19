@@ -35,6 +35,7 @@ namespace butil {
 
 #if defined(OS_LINUX)
 
+// 子进程栈空间
 const int CHILD_STACK_SIZE = 256 * 1024;
 
 struct ChildArgs {
@@ -45,7 +46,9 @@ struct ChildArgs {
 
 int launch_child_process(void* args) {
     ChildArgs* cargs = (ChildArgs*)args;
+    // 将标准输出重定向到 pipe_fd1 上
     dup2(cargs->pipe_fd1, STDOUT_FILENO);
+    // 关闭 pipe_fd0, pipe_fd1。主进程读取 pipe_fd0 即可获取命令输出。
     close(cargs->pipe_fd0);
     close(cargs->pipe_fd1);
     execl("/bin/sh", "sh", "-c", cargs->cmd, NULL);
@@ -85,11 +88,13 @@ int read_command_output_through_clone(std::ostream& os, const char* cmd) {
     pipe_fd[1] = -1;
 
     for (;;) {
+        // 主进程读取 pipe_fd0 描述符来读取子进程输出。
         const ssize_t nr = read(pipe_fd[0], buffer, sizeof(buffer));
         if (nr > 0) {
             os.write(buffer, nr);
             continue;
         } else if (nr == 0) {
+            // 读取文件结束
             break;
         } else if (errno != EINTR) {
             LOG(ERROR) << "Encountered error while reading for the pipe";
@@ -100,6 +105,7 @@ int read_command_output_through_clone(std::ostream& os, const char* cmd) {
     close(pipe_fd[0]);
     pipe_fd[0] = -1;
 
+    // 等待子进程退出
     for (;;) {
         pid_t wpid = waitpid(cpid, &wstatus, WNOHANG | __WALL);
         if (wpid > 0) {

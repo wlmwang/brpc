@@ -19,6 +19,7 @@
 
 namespace butil {
 
+// 全局线程本地变量初始化
 __thread StringMapThreadLocalTemp tls_stringmap_temp = { false, {} };
 
 }  // namespace butil

@@ -6,6 +6,18 @@
 #define BUTIL_FORMAT_MACROS_H_
 
 // This file defines the format macros for some integer types.
+// 
+// 跨平台整数类型相关的 printf 格式宏。
+// 
+// \file <inttypes.h>
+// int64_t value;
+// printf("xyz:%" PRId64, value);
+// 
+// # 相当于64位的：
+// printf("xyz:%" "ld", value);
+// 
+// # 或32位的：
+// printf("xyz:%" "lld", value);
 
 // To print a 64-bit value in a portable way:
 //   int64_t value;

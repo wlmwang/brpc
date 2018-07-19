@@ -33,19 +33,20 @@
 //   }
 //   
 //  
-// LazyInstance<Type, Traits> 类管理一个单一的 Type 实例，它将在第一次访问时被懒惰地
-// 创建。这个类通常对于使用函数级别的静态 (function-level static) 的地方很有用，但是需
-// 要保证线程安全。 Type 构造函数只会被调用一次，即使两个线程会 "竞争的" 来创建对象。Get() 
-// 和 Pointer() 将始终返回相同的完全初始化的实例。当实例被构造时，它将被注册到 AtExitManager, 
-// AtExitManager 对象析构函数将在程序进程退出时调用。
+// LazyInstance<Type, Traits> 类管理一个单一的 Type 实例，它将在第一次访问时被懒
+// 惰地创建。这个类通常对于使用函数级别的静态 (function-level static) 的地方很有用，
+// 但是需要保证线程安全。 Type 构造函数只会被调用一次，即使两个线程会 "竞争的" 来创建
+// 对象。Get() 和 Pointer() 将始终返回相同的完全初始化的实例。当实例被构造时，它将被
+// 注册到 AtExitManager, AtExitManager 对象析构函数将在程序进程退出时调用。
 // 
-// LazyInstance 是完全线程安全的，假设您安全地创建它。该类被设计为 POD 初始化，因此它不
-// 应该需要静态的构造函数。只有将 LazyInstance 声明成全局变量，并使用 LAZY_INSTANCE_INITIALIZER 
-// 初始化后才有意义。
+// LazyInstance 是完全线程安全的，假设您安全地创建它。该类被设计为 POD 初始化，因此
+// 它不应该需要静态的构造函数。只有将 LazyInstance 声明成全局变量，并使用 
+// LAZY_INSTANCE_INITIALIZER 初始化后才有意义。
 // 
-// LazyInstance 与 Singleton 类似，只是它没有 Singleton 属性。可以拥有多个相同类型的 LazyInstance，
-// 并且每个都将管理一个唯一的实例。它还预先分配 Type 的空间，以避免在堆上分配 Type 实例。
-// 这可能有助于创建实例的性能，并减少堆碎片。这要求 Type 是完整的类型，以便我们可以确定大小。
+// LazyInstance 与 Singleton 类似，只是它没有 Singleton 属性。可以拥有多个相同类
+// 型的 LazyInstance，并且每个都将管理一个唯一的实例。它还预先分配 Type 的空间，以
+// 避免在堆上分配 Type 实例。这可能有助于创建实例的性能，并减少堆碎片。这要求 Type 是
+// 完整的类型，以便我们可以确定大小。
 //  
 //  Use like:
 //   static LazyInstance<MyClass> my_instance = LAZY_INSTANCE_INITIALIZER;
@@ -53,7 +54,7 @@
 //     my_instance.Get().SomeMethod();  // MyClass::SomeMethod()
 //
 //     MyClass* ptr = my_instance.Pointer();
-//     ptr->DoDoDo();  // MyClass::DoDoDo
+//     ptr->DoDoDo();  // MyClass::DoDoDo()
 //   }
 
 #ifndef BUTIL_LAZY_INSTANCE_H_
@@ -92,7 +93,7 @@ struct DefaultLazyInstanceTraits {
 #endif
 
   static Type* New(void* instance) {
-    // 检测缓冲区传递给 placement new 是否对齐
+    // 检测缓冲区传递给 placement new 是否对齐。
     DCHECK_EQ(reinterpret_cast<uintptr_t>(instance) & (ALIGNOF(Type) - 1), 0u)
         << ": Bad boy, the buffer passed to placement new is not aligned!\n"
         "This may break some stuff like SSE-based optimizations assuming the "
@@ -205,8 +206,8 @@ class LazyInstance {
   // the OnExit member function, where needed.
   // ~LazyInstance() {}
   // 
-  // 不要定义析构函数，因为这样做会使 LazyInstance 成为非 POD 结构（不能有非默认类控制成员）。
-  // 我们通过 OnExit 成员函数明确处理所包含 Type 类的销毁操作。
+  // 不要定义析构函数，因为这样做会使 LazyInstance 成为非 POD 结构（不能有非默认类控制
+  // 成员）。我们通过 OnExit 成员函数明确处理所包含 Type 类的销毁操作。
 
   // Convenience typedef to avoid having to repeat Type for leaky lazy
   // instances.
@@ -243,10 +244,11 @@ class LazyInstance {
     // the associated data (private_buf_). Pairing Release_Store is in
     // CompleteLazyInstance().
     // 
-    // 当实例已经创建时，我们希望能够快速访问。由于线程最多只能看到 private_instance_ == 0 
-    // 或 kLazyInstanceStateCreating 一次，因此负载将从 NeedsInstance() 中作为快速路径取出。
-    // 一个线程获取原子值（考虑内存乱序执行），看到 private_instance_ > creating 需要获取相关
-    // 数据（private_buf_）的可见性。配对 Release_Store 在 CompleteLazyInstance() 中。
+    // 当实例已经创建时，我们希望能够快速访问。由于线程最多只能看到 private_instance_
+    // == 0 或 kLazyInstanceStateCreating 一次，因此负载将从 NeedsInstance() 中
+    // 作为快速路径取出。一个线程获取原子值（考虑内存乱序执行），看到 private_instance_ 
+    // > creating 需要获取相关数据（private_buf_）的可见性。配对 Release_Store 在 
+    // CompleteLazyInstance() 中。
     // 
     // 原子读取 private_instance_ 保存的实例指针值。
     // 当 value 是有效的 ptr ， value & kLazyInstanceCreatedMask 不为 0 。
@@ -258,7 +260,8 @@ class LazyInstance {
       // 在由 |private_buf_| 提供的内存空间中创建实例。
       value = reinterpret_cast<subtle::AtomicWord>(
           Traits::New(private_buf_.void_data()));
-      // 注册实例的销毁回调函数。并将 private_buf_.void_data() 值写入 private_instance_ 中。
+      // 注册实例的销毁回调函数。并将 private_buf_.void_data() 值写入 
+      // private_instance_ 中。
       internal::CompleteLazyInstance(&private_instance_, value, this,
                                      Traits::kRegisterOnExit ? OnExit : NULL);
     }
@@ -305,8 +308,8 @@ class LazyInstance {
   // threaded, so don't synchronize across threads.
   // Calling OnExit while the instance is in use by other threads is a mistake.
   // 
-  // 与 AtExit 一起使用的适配器函数。这应该被单线程调用，所以不要跨线程。当实例被其他线程使用
-  // 时调用 OnExit 是一个错误！
+  // 与 AtExit 一起使用的适配器函数。这应该被单线程调用，所以不要跨线程。当实例被其他线
+  // 程使用时调用 OnExit 是一个错误！
   static void OnExit(void* lazy_instance) {
     LazyInstance<Type, Traits>* me =
         reinterpret_cast<LazyInstance<Type, Traits>*>(lazy_instance);

@@ -33,7 +33,7 @@ Arena::Arena(const ArenaOptions& options)
     , _options(options) {
 }
 
-// 释放块所有内存资源
+// 释放所有块上内存资源
 Arena::~Arena() {
     while (_cur_block != NULL) {
         Block* const saved_next = _cur_block->next;
@@ -60,7 +60,7 @@ void Arena::swap(Arena& other) {
 void Arena::clear() {
     // TODO(gejun): Reuse memory
     // 
-    // 释放内存池中所有内存资源(swap用法)
+    // 释放内存池中所有内存资源（触发析构）
     Arena a;
     swap(a);
 }

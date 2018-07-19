@@ -26,6 +26,9 @@
 // Then:
 //   STRINGIZE(A) produces "FOO"
 //   STRINGIZE(B(y)) produces "myobj->FunctionCall(y)"
+//   
+//   
+// 使用它来将提供的参数转换成字符串，如果它是预处理器符号，首先展开它。
 #define STRINGIZE(x) STRINGIZE_NO_EXPANSION(x)
 
 #endif  // BUTIL_STRINGS_STRINGIZE_MACROS_H_

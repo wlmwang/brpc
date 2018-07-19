@@ -31,6 +31,7 @@ namespace butil {
 // implementation using each platform's crypto library.  See
 // http://crbug.com/47218
 
+// SHA-1 实现。只按字节处理数据块，简化代码。
 class SecureHashAlgorithm {
  public:
   SecureHashAlgorithm() { Init(); }
@@ -42,6 +43,8 @@ class SecureHashAlgorithm {
   void Final();
 
   // 20 bytes of message digest.
+  // 
+  // 20 字节的消息摘要
   const unsigned char* Digest() const {
     return reinterpret_cast<const unsigned char*>(H);
   }

@@ -9,7 +9,8 @@
 
 namespace butil {
 
-std::string GenerateGUID() {
+// 生成 128 位 16 进制随机 GUID 。32 个字符（16 进制） + 4 个连接线
+std::string GenerateGUID() { 
   uint64_t sixteen_bytes[2] = { butil::RandUint64(), butil::RandUint64() };
   return RandomDataToGUIDString(sixteen_bytes);
 }

@@ -24,10 +24,14 @@ void SplitStringT(const STR& str,
   for (size_t i = 0; i <= c; ++i) {
     if (i == c || str[i] == s) {
       STR tmp(str, last, i - last);
+      // 去除头尾空白
       if (trim_whitespace)
         TrimWhitespace(tmp, TRIM_ALL, &tmp);
       // Avoid converting an empty or all-whitespace source string into a vector
       // of one empty string.
+      // 
+      // 如果 |str| 中有 N 个 |c| 是连续的，或者如果 |str| 以 N 个 |c| 开头或结尾，将
+      // 插入 N 个空字符串。
       if (i != c || !r->empty() || !tmp.empty())
         r->push_back(tmp);
       last = i + 1;
@@ -35,6 +39,8 @@ void SplitStringT(const STR& str,
   }
 }
 
+// 解析 |line| : "key===value=value2" |key_value_delimiter| : "="
+// 返回 |key| : "key" |value| : "value=value2"
 bool SplitStringIntoKeyValue(const std::string& line,
                              char key_value_delimiter,
                              std::string* key,
@@ -96,6 +102,8 @@ void SplitStringAlongWhitespaceT(const STR& str, std::vector<STR>* result) {
   for (size_t i = 0; i < length; ++i) {
     switch (str[i]) {
       // HTML 5 defines whitespace as: space, tab, LF, line tab, FF, or CR.
+      // 
+      // HTML 5 定义的空白符： space, tab, LF, line tab, FF, or CR
       case L' ':
       case L'\t':
       case L'\xA':
