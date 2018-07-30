@@ -26,8 +26,10 @@ namespace butil {
 int unix_socket_listen(const char* sockname, bool remove_previous_file) {
     struct sockaddr_un addr;
     addr.sun_family = AF_LOCAL;
+    // listen socket 路径地址
     snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sockname);
 
+    // 创建 listen socket 文件描述符
     fd_guard fd(socket(AF_LOCAL, SOCK_STREAM, 0));
     if (fd < 0) {
         PLOG(ERROR) << "Fail to create unix socket";
@@ -36,15 +38,18 @@ int unix_socket_listen(const char* sockname, bool remove_previous_file) {
     if (remove_previous_file) {
         remove(sockname);
     }
+    // 绑定地址到描述符上
     if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
         PLOG(ERROR) << "Fail to bind sockfd=" << fd << " as unix socket="
                     << sockname;
         return -1;
     }
+    // 监听该 socket 描述符
     if (listen(fd, SOMAXCONN) != 0) {
         PLOG(ERROR) << "Fail to listen to sockfd=" << fd;
         return -1;
     }
+    // 释放 fd 所有权，并返回 fd
     return fd.release();
 }
 
@@ -55,18 +60,22 @@ int unix_socket_listen(const char* sockname) {
 int unix_socket_connect(const char* sockname) {
     struct sockaddr_un addr;
     addr.sun_family = AF_LOCAL;
+    // listen socket 路径地址
     snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sockname);
 
+    // 创建 connect socket 文件描述符
     fd_guard fd(socket(AF_LOCAL, SOCK_STREAM, 0));
     if (fd < 0) {
         PLOG(ERROR) << "Fail to create unix socket";
         return -1;
     }
+    // 连接 listen socket 地址
     if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
         PLOG(ERROR) << "Fail to connect to unix socket=" << sockname
                     << " via sockfd=" << fd;
         return -1;
     }
+    // 释放 fd 所有权，并返回 fd
     return fd.release();
 }
 

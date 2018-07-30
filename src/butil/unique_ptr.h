@@ -21,6 +21,9 @@
 //   reference http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html
 //   for any pending issues against this specification.
 
+
+// boost 中的 std::unique_ptr<> 的 C++03 仿真。
+
 #include <algorithm>                // std::swap until C++11
 #include "butil/type_traits.h"
 #include "butil/macros.h"            // BAIDU_CASSERT
@@ -29,6 +32,7 @@ namespace std {
 
 namespace up_detail {
 
+// 保证 sizeof(one) < sizeof(two)
 typedef char one;
 struct two {one _[2];};
 
@@ -45,16 +49,19 @@ template <class T> two test2(...);
 template <class T> T source();
 }
 
+// 当 T1 == T2 （包括类型向上转换，T2 为基类）时， is_convertible::value == true
 template <class T1, class T2>
 struct is_convertible {
     static const bool value = sizeof(is_conv_imp::test1<T2>(is_conv_imp::source<T1>())) == 1;
 };
 
+// 当 T 是完全类时， is_convertible::value == true
 template <class T>
 struct is_convertible<T, T> {
     static const bool value = sizeof(is_conv_imp::test2<T>(is_conv_imp::source<T>())) == 1;
 };
 
+// 引用/指针类型自动转换包装器
 template <class T>
 class rv {
     T& r_;
@@ -65,6 +72,7 @@ public:
     T& operator*() {return r_;}
 };
 
+// T 类型包装器
 template <class T>
 struct identity {
     typedef T type;
@@ -72,6 +80,9 @@ struct identity {
 
 }  // up_detail
 
+// std::move() 移动语义实现
+
+// T 不是右值 rv 的派生类时，std::move(T& t) 函数，返回 T& 对象
 template <class T>
 inline
 typename butil::enable_if<
@@ -82,6 +93,7 @@ move(T& t) {
     return t;
 }
 
+// T 不是右值 rv 的派生类时，std::move(const T& t) 函数，返回 const T& 对象
 template <class T>
 inline
 typename butil::enable_if <
@@ -92,6 +104,7 @@ move(const T& t) {
     return t;
 }
 
+// T 是右值 rv 的派生类，std::move(T& t) 函数，返回用 rv 构造 T 的临时对象。
 template <class T>
 inline
 typename butil::enable_if <
@@ -99,9 +112,13 @@ typename butil::enable_if <
     T
 >::type
 move(T& t) {
+    // 转换成 T 临时值
     return T(up_detail::rv<T>(t));
 }
 
+// std::forward() 转发语义实现
+
+// T 是引用类型，返回引用类型 t 
 template <class T>
 inline
 typename butil::enable_if <
@@ -112,6 +129,7 @@ forward(typename up_detail::identity<T>::type t) {
     return t;
 }
 
+// T 不是引用类型，返回移动 t 的对象（ T 类型）
 template <class T>
 inline
 typename butil::enable_if <
@@ -122,6 +140,7 @@ forward(typename up_detail::identity<T>::type& t) {
     return move(t);
 }
 
+// T 不是引用类型，但 t 有 const 约束，返回移动 t 的对象（ T 类型）
 template <class T>
 inline
 typename butil::enable_if <
@@ -135,6 +154,8 @@ forward(const typename up_detail::identity<T>::type& t) {
 namespace up_detail {
 
 // A move-aware but stripped-down compressed_pair which only optimizes storage for T2
+// 
+// 一个移动感知，且自动优化 T2 存储（T2 是否为空类）的压缩 pair<> 类 std::compressed_pair<>
 template <class T1, class T2, bool = butil::is_empty<T2>::value>
 class UniquePtrStorage {
     T1 t1_;
@@ -159,6 +180,7 @@ public:
     T2_const_reference second() const {return t2_;}
 };
 
+// T2 为空类，优化掉
 template <class T1, class T2>
 class UniquePtrStorage<T1, T2, true> : private T2 {
     T1 t1_;

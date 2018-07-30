@@ -22,6 +22,10 @@ namespace {
 // when it reaches an invalid item (including the wildcard character). |parsed|
 // is the resulting integer vector. Function returns true if all numbers were
 // parsed successfully, false otherwise.
+// 
+// 解析 |version_str| 版本号字符串中点号分隔的数字，并构造有效整数的数组。解析到达无效项（包
+// 括通配符）时停止，写入 |parsed| 整数数组（不包含通配符）。如果所有数字都被成功解析，则函数
+// 返回 true ，否则返回 false 。
 bool ParseVersionNumbers(const std::string& version_str,
                          std::vector<uint16_t>* parsed) {
   std::vector<std::string> numbers;
@@ -43,6 +47,8 @@ bool ParseVersionNumbers(const std::string& version_str,
       return false;
 
     // This throws out things like +3, or 032.
+    // 
+    // 抛出 +3 或 032 之类版本号错误
     if (IntToString(num) != *it)
       return false;
 
@@ -54,6 +60,11 @@ bool ParseVersionNumbers(const std::string& version_str,
 // Compares version components in |components1| with components in
 // |components2|. Returns -1, 0 or 1 if |components1| is less than, equal to,
 // or greater than |components2|, respectively.
+// 
+// 比较 |components1| 和 |components2| 中的版本号：
+// 如果 |components1| > |components2| 返回 1
+// 如果 |components1| == |components2| 返回 0
+// 如果 |components1| < |components2| 返回 -1
 int CompareVersionComponents(const std::vector<uint16_t>& components1,
                              const std::vector<uint16_t>& components2) {
   const size_t count = std::min(components1.size(), components2.size());
@@ -63,6 +74,7 @@ int CompareVersionComponents(const std::vector<uint16_t>& components1,
     if (components1[i] < components2[i])
       return -1;
   }
+  // 剩余版本号组件合法，即为版本较新者（较大）
   if (components1.size() > components2.size()) {
     for (size_t i = count; i < components1.size(); ++i) {
       if (components1[i] > 0)
@@ -90,6 +102,7 @@ Version::Version(const std::string& version_str) {
   if (!ParseVersionNumbers(version_str, &parsed))
     return;
 
+  // 保存版本号各个部分的整数
   components_.swap(parsed);
 }
 
@@ -107,6 +120,7 @@ bool Version::IsValidWildcardString(const std::string& wildcard_string) {
   return version.IsValid();
 }
 
+// 当前版本是否小于 |version_str| ，如果是，返回 true
 bool Version::IsOlderThan(const std::string& version_str) const {
   Version proposed_ver(version_str);
   if (!proposed_ver.IsValid())
@@ -114,17 +128,21 @@ bool Version::IsOlderThan(const std::string& version_str) const {
   return (CompareTo(proposed_ver) < 0);
 }
 
+// 带通配符版本号比较
 int Version::CompareToWildcardString(const std::string& wildcard_string) const {
   DCHECK(IsValid());
   DCHECK(Version::IsValidWildcardString(wildcard_string));
 
   // Default behavior if the string doesn't end with a wildcard.
+  // 
+  // 如果字符串不以通配符结尾，则为默认比较行为
   if (!EndsWith(wildcard_string.c_str(), ".*", false)) {
     Version version(wildcard_string);
     DCHECK(version.IsValid());
     return CompareTo(version);
   }
 
+  // 去除结尾 .* 分隔版本号字符串
   std::vector<uint16_t> parsed;
   const bool success = ParseVersionNumbers(
       wildcard_string.substr(0, wildcard_string.length() - 2), &parsed);
@@ -135,6 +153,11 @@ int Version::CompareToWildcardString(const std::string& wildcard_string) const {
   // version is still smaller. Same logic for equality (e.g. comparing 1.2.2 to
   // 1.2.2.* is 0 regardless of the wildcard). Under this logic,
   // 1.2.0.0.0.0 compared to 1.2.* is 0.
+  // 
+  // 如果版本号小于通配符版本号解析的 |parsed| 数组，即通配符没有效果（例如比较 1.2.3 和 
+  // 1.3.* ），版本号都是较小。
+  // 相同的逻辑（例如，将 1.2.2 与 1.2.2.* 进行比较，.* 无论通配符是否为 0 ，结果都为 0），
+  // 根据这个逻辑，1.2.0.0.0.0 与 1.2.* 相比，为相同版本。
   if (comparison == -1 || comparison == 0)
     return comparison;
 
@@ -142,6 +165,8 @@ int Version::CompareToWildcardString(const std::string& wildcard_string) const {
   // which means that the two are equal since |parsed| has a trailing "*".
   // (e.g. 1.2.3 vs. 1.2.* will return 0). All other cases return 1 since
   // components is greater (e.g. 3.2.3 vs 1.*).
+  // 
+  // 1.2.3 对 1.2.* 将返回 0 。所有其他情况返回 1 ，因为组件更大（例如 3.2.3 vs 1.*）
   DCHECK_GT(parsed.size(), 0UL);
   const size_t min_num_comp = std::min(components_.size(), parsed.size());
   for (size_t i = 0; i < min_num_comp; ++i) {

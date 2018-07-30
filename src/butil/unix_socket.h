@@ -16,6 +16,8 @@
 // Date: Mon. Jan 27  23:08:35 CST 2014
 
 // Wrappers of unix domain sockets, mainly for unit-test of network stuff.
+// 
+// unix domain sockets 包装器
 
 #ifndef BUTIL_UNIX_SOCKET_H
 #define BUTIL_UNIX_SOCKET_H
@@ -26,12 +28,20 @@ namespace butil {
 // If remove_previous_file is true or absent, remove previous file before
 // creating the socket.
 // Returns the file descriptor on success, -1 otherwise and errno is set.
+// 
+// 在 |sockname|（一般是实际文件名地址）上创建一个 unix domain socket ，并监听它。
+// 如果 |remove_previous_file| 为 true 或者不存在此参数，在创建 unix domain 
+// socket 之前，先清理 |sockname| （一般是实际文件名地址）。成功返回 fd ，失败返回 
+// -1 ，并设置 errno 。
 int unix_socket_listen(const char* sockname, bool remove_previous_file);
 int unix_socket_listen(const char* sockname);
 
 // Create an unix domain socket and connect it to another listening unix domain
 // socket at `sockname'.
 // Returns the file descriptor on success, -1 otherwise and errno is set.
+// 
+// 创建一个 unix domain socket ，并连接到以 |sockname| 为监听地址的 unix domain 
+// socket 。成功返回 fd ，失败返回 -1 ，并设置 errno 。
 int unix_socket_connect(const char* sockname);
 
 }  // namespace butil
